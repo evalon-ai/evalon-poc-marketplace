@@ -1,0 +1,15 @@
+{
+  "name": "evalon-poc-marketplace",
+  "owner": {
+    "name": "Evalon"
+  },
+  "plugins": [
+    {
+      "name": "evalon-poc-plugin",
+      "source": "./plugins/evalon-poc-plugin",
+      "description": "POC: echoes every hook invocation so you can see hooks fire",
+      "version": "0.1.0"
+    }
+  ],
+  "description": "Evalon POC marketplace for testing plugin hooks"
+}

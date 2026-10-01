@@ -1,0 +1,2 @@
+# Keep shell scripts LF so bash on Windows (Git Bash) doesn't choke on CRLF
+*.sh text eol=lf

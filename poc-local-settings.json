@@ -1,0 +1,11 @@
+{
+  "extraKnownMarketplaces": {
+    "evalon-poc-marketplace": {
+      "source": { "source": "directory", "path": "/Users/mottis/evalon-poc-marketplace" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "evalon-poc-plugin@evalon-poc-marketplace": true
+  }
+}

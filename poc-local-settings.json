@@ -1,7 +1,7 @@
 {
   "extraKnownMarketplaces": {
     "evalon-poc-marketplace": {
-      "source": { "source": "directory", "path": "/Users/mottis/evalon-poc-marketplace" },
+      "source": { "source": "github", "repo": "evalon-ai/evalon-poc-marketplace" },
       "autoUpdate": true
     }
   },

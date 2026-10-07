@@ -100,7 +100,7 @@ hook event ──► run.sh ──► detect OS/arch
 
 ## Open items
 
-- **Download size.** Bun-compiled binaries embed the full runtime, so expect tens of MB per platform (around 55–110 MB uncompressed, smaller when compressed). This only happens on the first run, but it can delay the first hook.
+- **Download size.** Bun-compiled binaries embed the full runtime, so expect tens of MB per platform (62–86 MB measured in the POC, see `example-portable-node/`; smaller when compressed). This only happens on the first run, but it can delay the first hook.
 - **First-run latency vs hook timeouts.** Either download in the background on `SessionStart`, or fail open (exit 0) until the runtime is ready.
 - **Cache location and versioning.** Pick a per-user directory such as `${CLAUDE_PLUGIN_DATA}` or `~/.evalon/runtime/<version>/`, and clean up old versions.
 - **Integrity and trust.** Verify the checksum; consider code signing for macOS (Gatekeeper/notarization) and Windows (SmartScreen).

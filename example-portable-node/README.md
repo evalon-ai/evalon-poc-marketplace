@@ -12,6 +12,7 @@ It is a small module loader that `bun build --compile` turns into a single nativ
 | `src/payload.ts` | A sample payload that prints a line. It stands in for the real launcher `.mjs`. |
 | `package.json` | Has a `tsc` build for running under regular Node, and `compile:*` scripts that produce the native binaries with Bun. |
 | `tsconfig.json` | TypeScript settings (ES2022, NodeNext). |
+| `build-binaries.sh` | Cross-compiles all (or the listed) targets into `bin/` and writes `SHA256SUMS`. |
 
 ## How it works
 
@@ -29,12 +30,42 @@ npm start                 # node dist/portable-node-loader.js (finds dist/payloa
 ```
 
 ### As a native executable (requires [Bun](https://bun.sh))
+
+Install Bun if you don't have it:
+```bash
+curl -fsSL https://bun.sh/install | bash        # macOS / Linux
+powershell -c "irm bun.sh/install.ps1 | iex"    # Windows
+```
+
+Bun cross-compiles, so all six targets can be built from a single machine. Use whichever of these three options is convenient.
+
+**Option 1: the script** (all targets plus a `SHA256SUMS` file to upload to S3)
+```bash
+./build-binaries.sh                          # all 6 targets → bin/
+./build-binaries.sh darwin-arm64 linux-x64   # only the targets listed
+```
+
+**Option 2: npm scripts**
 ```bash
 npm run compile:darwin-arm64     # or any single target
 npm run compile:all              # all 6 targets → bin/
 ```
 
-Each `compile:*` script runs `bun build src/portable-node-loader.ts --compile --minify --target=bun-<os>-<arch>`. Bun cross-compiles, so all six targets can be built from a single Mac.
+**Option 3: raw Bun commands**
+```bash
+bun build src/portable-node-loader.ts --compile --minify --target=bun-darwin-arm64  --outfile bin/portable-node-darwin-arm64
+bun build src/portable-node-loader.ts --compile --minify --target=bun-darwin-x64    --outfile bin/portable-node-darwin-x64
+bun build src/portable-node-loader.ts --compile --minify --target=bun-linux-arm64   --outfile bin/portable-node-linux-arm64
+bun build src/portable-node-loader.ts --compile --minify --target=bun-linux-x64     --outfile bin/portable-node-linux-x64
+bun build src/portable-node-loader.ts --compile --minify --target=bun-windows-arm64 --outfile bin/portable-node-windows-arm64.exe
+bun build src/portable-node-loader.ts --compile --minify --target=bun-windows-x64   --outfile bin/portable-node-windows-x64.exe
+```
+
+Bun also has these target variants:
+- `-baseline`, e.g. `bun-linux-x64-baseline`, for older x64 CPUs without AVX2.
+- `-musl`, e.g. `bun-linux-x64-musl`, for Alpine and other musl-based Linux.
+
+Binaries for macOS that are built on another OS may need `codesign` before Gatekeeper will run them.
 
 Run a binary with a payload next to it:
 ```bash

@@ -304,3 +304,143 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 - Teams / SSO / Admin API / SCIM / service accounts: cursor.com/docs/account/teams/{dashboard,sso,admin-api,scim} · /docs/api · /docs/account/enterprise/service-accounts
 - CLI: cursor.com/docs/cli/overview · /docs/cli/reference/configuration
 - Extensions / Open VSX: cursor.com/help/customization/extensions · open-vsx.org
+## Appendix — Deployment recipes (steps · configs · files)
+
+> **Legend.** ✅ verified against Cursor docs/forum · ⚠ illustrative (exact schema/UI not
+> published — validate). ✅ `hooks.json` entry schema (`version`, `command`, `type`, `matcher`,
+> `timeout`, `loop_limit`, `failClosed`); ✅ `marketplace.json` `source` (local path **or**
+> `{type,owner,repo}`); ✅ dashboard team-hook form fields (name, type, step, script content,
+> supported OS; **no `matcher`**); ✅ `${CURSOR_PLUGIN_ROOT}` expansion. ⚠ plugin manifest keys and
+> plugin→hooks wiring.
+
+### A1 · Enterprise cloud — one OS-independent config via `npx`
+**Idea:** a single team hook whose command is `npx`, so **one entry covers mac/win/linux** (npm
+resolves the right build). **Trade-off:** requires **Node/npx on every machine** — reintroduces the
+Node dependency the native-binary paths avoid.
+
+**Steps**
+1. Publish the hook to npm as `@evalon/cursor-hook` (bin = a Node CLI that reads the hook JSON on stdin and prints the permission JSON on stdout).
+2. Dashboard → **Team Hooks → Create Command Hook**: step **Before Tool Use**; script content `npx -y @evalon/cursor-hook`; Supported OS **macOS + Windows + Linux** (all).
+3. Save → syncs to members (~30 min / next login).
+
+```json
+// Effective hooks.json Cursor assembles on EVERY machine (one OS-independent entry)
+{ "version": 1, "hooks": {
+  "beforeShellExecution": [
+    { "command": "npx -y @evalon/cursor-hook", "failClosed": true }
+  ]
+} }
+```
+
+**Files created / modified**
+```
+@evalon/cursor-hook/            # published to npm (NOT committed to the team)
+  package.json                  # { "name":"@evalon/cursor-hook", "bin":{ "evalon-cursor-hook":"dist/hook.js" } }
+  dist/hook.js                  # stdin -> stdout permission logic
+# Cursor: 1 dashboard Team Hook entry (no file you commit; machine hooks.json is Cursor-assembled)
+```
+
+### A2 · Enterprise cloud — one config per OS (native binaries, no Node)
+**Idea:** one **Command Hook per OS**, each tagged with its Supported-OS and pointing at that
+platform's native launcher. The dashboard ships **config only**, so a **Session-Start bootstrap**
+stages the binary first.
+
+**Steps**
+1. Host the 6 native launchers + `bootstrap.sh`/`bootstrap.ps1` (e.g. S3 + checksums).
+2. Dashboard → create, per OS: a **Session Start** hook (script content = that OS's bootstrap; Supported OS = that OS) **and** a **Before Tool Use** hook (script content = that OS's launcher path; Supported OS = that OS; `failClosed`).
+3. Save → Cursor delivers each entry only to matching-OS machines.
+
+```json
+// macOS machine -> effective hooks.json
+{ "version": 1, "hooks": {
+  "sessionStart":         [ { "command": "/Library/Application Support/Evalon/bin/evalon-bootstrap.sh" } ],
+  "beforeShellExecution": [ { "command": "/Library/Application Support/Evalon/bin/evalon-hook-darwin-arm64", "failClosed": true } ]
+} }
+```
+```json
+// Windows machine -> effective hooks.json   (Linux/WSL analogous with /opt/evalon/bin/...)
+{ "version": 1, "hooks": {
+  "sessionStart":         [ { "command": "powershell -ExecutionPolicy Bypass -File C:\\Program Files\\Evalon\\bin\\evalon-bootstrap.ps1" } ],
+  "beforeShellExecution": [ { "command": "C:\\Program Files\\Evalon\\bin\\evalon-hook-windows-x64.exe", "failClosed": true } ]
+} }
+```
+
+**Files created / modified**
+```
+# hosted (S3) — NOT committed to the team
+evalon-hook-{darwin-arm64,darwin-x64,linux-x64,linux-arm64,windows-x64.exe,windows-arm64.exe}
+evalon-bootstrap.sh, evalon-bootstrap.ps1
+# Cursor: 2 dashboard hook entries per OS (Session Start + Before Tool Use)
+```
+⚠ No `matcher` in the dashboard form → scope inside the launcher. ⚠ Validate dashboard delivery (reported stale-prone) and `.ps1` reliability on Windows.
+
+### A3 · Enterprise — our GitHub marketplace + a plugin bundling the hooks
+**Idea:** Evalon owns a marketplace repo (Enterprise allows multiple) holding one plugin that
+bundles the hooks; registered once and set **Required**.
+
+**Steps**
+1. Create the marketplace repo (tree below) and push.
+2. Install the **Cursor GitHub App** on it (enables Auto Refresh).
+3. Dashboard (Enterprise) → **Plugins → add team marketplace** → repo URL → **Enable Auto Refresh**.
+4. Set `evalon-guard` install mode → **Required**.
+5. Members receive it on next sync; the plugin's Session-Start bootstrap stages the launcher; the enforcement hook runs.
+
+**Files created (in the marketplace repo)**
+```
+evalon-cursor-marketplace/
+  .cursor-plugin/marketplace.json
+  plugins/evalon-guard/
+    .cursor-plugin/plugin.json
+    hooks/hooks.json
+    bin/evalon-bootstrap.sh
+    bin/evalon-bootstrap.ps1
+```
+```json
+// .cursor-plugin/marketplace.json                                   ✅ schema
+{ "name": "evalon-marketplace",
+  "plugins": [ { "name": "evalon-guard", "source": "./plugins/evalon-guard" } ] }
+```
+```json
+// plugins/evalon-guard/.cursor-plugin/plugin.json                   ⚠ keys illustrative
+{ "name": "evalon-guard", "version": "0.1.0", "description": "Evalon policy-enforcement hooks" }
+```
+```json
+// plugins/evalon-guard/hooks/hooks.json   (bundled; ${CURSOR_PLUGIN_ROOT} ✅ expands)
+{ "version": 1, "hooks": {
+  "sessionStart":         [ { "command": "sh ${CURSOR_PLUGIN_ROOT}/bin/evalon-bootstrap.sh" } ],
+  "beforeShellExecution": [ { "command": "${CURSOR_PLUGIN_ROOT}/bin/evalon-launcher", "failClosed": true } ]
+} }
+```
+⚠ Plugin→hooks wiring (does Cursor auto-load `hooks/hooks.json`, or must `plugin.json` reference it?) is undocumented — validate. ⚠ One `command` per entry → use a host-native `evalon-launcher` that self-selects arch, or stage per-OS via the bootstrap (Windows `.ps1` caveat).
+
+### A4 · Teams — add our plugin to the team's existing marketplace (external `source`)
+**Idea:** the team keeps its one marketplace; Evalon lives in **its own** repo and is referenced by
+an **external-GitHub `source`** entry, so it updates on push without touching their repo again.
+
+**Steps**
+1. Publish the plugin in Evalon's own repo (tree below).
+2. Open a PR on the **team's marketplace repo** adding one entry to `.cursor-plugin/marketplace.json` (diff below).
+3. Merge → the team marketplace auto-refreshes (GitHub App) and picks up `evalon-guard`.
+4. Admin sets `evalon-guard` → **Required**.
+5. Thereafter Evalon ships by pushing to **its own** repo; **bump `version`** to signal updates.
+
+**File MODIFIED (in the team's marketplace repo)**
+```diff
+  // <team-marketplace-repo>/.cursor-plugin/marketplace.json          ✅ external source
+  { "name": "acme-team-marketplace",
+    "plugins": [
+      { "name": "acme-internal", "source": "./plugins/acme-internal" },
++     { "name": "evalon-guard",
++       "source": { "type": "github", "owner": "evalon-ai", "repo": "evalon-cursor-plugin" } }
+    ] }
+```
+**Files created (in Evalon's own repo `evalon-cursor-plugin`)**
+```
+evalon-cursor-plugin/
+  .cursor-plugin/plugin.json      # ⚠ keys illustrative
+  hooks/hooks.json                # same bundled hooks as A3 (${CURSOR_PLUGIN_ROOT})
+  bin/evalon-bootstrap.sh
+  bin/evalon-bootstrap.ps1
+```
+⚠ Auto-refresh of an **external** source is reported stale-prone → validate propagation. Note: plugin-bundled `hooks.json` **does** support `matcher` (unlike the dashboard form), so tool-scoping is available here.
+

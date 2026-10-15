@@ -101,7 +101,7 @@ points at the per-OS native binary (no shell) —
 
 *Install paths above are illustrative.* **Plugin path without MDM:** reference bundled binaries
 via confirmed `${CURSOR_PLUGIN_ROOT}` expansion; prefer **one host-native launcher per OS**
-selected by a fail-open bootstrap. The community `sh`+`powershell` dual-entry idiom is
+selected by a fail-open bootstrap. **On Windows, invoke scripts via an explicit `sh`/`powershell` prefix, never a bare `.sh` path** (a bare path opens the file in an editor via file association; the prefix makes it fail cleanly when the interpreter is absent). The community `sh`+`powershell` dual-entry idiom is
 **unverified** (not in official docs/plugins; breaks when the terminal profile is **Git Bash** —
 PowerShell bootstrap bug). **Enterprise cloud** does L3 at the delivery
 layer: each dashboard hook has a **"Supported operating systems"** field, so you author one hook
@@ -433,6 +433,12 @@ Either way the plugin's hooks load with no extra config.
 The `sessionStart` entry lists **both** bootstraps; the wrong-OS one no-ops because that interpreter
 is absent (so keep them **fail-open**). ⚠ *Git-Bash caveat:* if the Windows terminal profile is Git
 Bash, `sh` **is** present, so the `sh` entry also runs on Windows — guard inside the script.
+
+**Rule — always prefix the interpreter; never a bare script path.** Write `sh ./bootstrap.sh` and
+`powershell -ExecutionPolicy Bypass -File ./bootstrap.ps1`. A **bare `.sh` path** (or an
+extensionless shebang file) makes Windows resolve it by **file association and open it in an editor**
+instead of running it; with an explicit `sh`/`powershell` prefix the launched program is the
+**interpreter**, so on a machine without it the hook simply **fails cleanly** (no editor).
 
 **Enforcement wiring (the real snag).** You can't name both `evalon-launcher` and
 `evalon-launcher.exe` in one entry, and **dual-listing a `failClosed` enforcement entry would block

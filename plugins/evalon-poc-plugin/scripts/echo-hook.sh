@@ -4,6 +4,7 @@
 
 INPUT="$(cat)"
 MAX=200
+ORG="${EVALON_TEST_ORGID:-}"   # per-org id injected via managed-settings env; empty if unset (never errors)
 
 case "$(uname -s 2>/dev/null)" in
   Darwin*)               OS="macOS" ;;
@@ -38,7 +39,7 @@ case "$EVENT" in
   *)                DETAIL="❓ ${EVENT:-unknown-event} · $(trim "$INPUT")" ;;
 esac
 
-MSG="🪝 [evalon-poc] [$OS] $DETAIL"
+MSG="🪝 [evalon-poc] [org: $ORG] [$OS] $DETAIL"
 # JSON-escape: backslashes, quotes, strip control chars
 ESC="$(printf '%s' "$MSG" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037')"
 printf '{"systemMessage":"%s"}\n' "$ESC"

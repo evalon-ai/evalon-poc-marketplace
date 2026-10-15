@@ -40,13 +40,14 @@ MDM available (Jamf / Intune / Kandji)?          ← ask first
 └─ NO MDM ─► vehicle depends on tier (binary always via the sh/PowerShell BOOTSTRAP: S3 + checksum, no Node/npx)
           │
           ├─ Enterprise ─► TWO options (can combine):
-          │     ① CLOUD-DASHBOARD HOOKS — silent, no MDM, Enterprise-only. Configured in the web
-          │        dashboard, pushed to every member on login + re-synced ~30 min; OS-targeted;
-          │        also run in cloud agents. A sessionStart hook runs the bootstrap; enforcement
-          │        hooks point at the launcher.  ⚠ delivery sometimes doesn't materialize → validate.
-          │     ② TEAM MARKETPLACE "Required" PLUGIN — visible, can't-uninstall; bundles the same
-          │        bootstrap. Use for the plugin UX or when cloud delivery is unreliable.
-          │     (Prefer ① for silent / people-tracking enforcement; MDM still beats both if available.)
+          │     ① TEAM MARKETPLACE "Required" PLUGIN — GitHub-sourced, auto-refresh, config-as-code
+          │        → scalable & versioned; bundles the bootstrap; "Required" = can't-uninstall (visible).
+          │     ② CLOUD-DASHBOARD HOOKS — silent, no MDM, Enterprise-only; pushed on login +
+          │        re-synced ~30 min; OS-targeted; also run in cloud agents. BUT config is a manual
+          │        per-hook FORM (no matcher, no Admin API) → tedious, doesn't scale; ⚠ delivery
+          │        sometimes doesn't materialize → validate.
+          │     (Prefer ① for scalable git-driven rollout; use ② when you need silent / people-tracking
+          │      enforcement and can tolerate manual form entry. MDM still beats both if available.)
           │
           ├─ Teams ──────► team marketplace "Required" plugin (bootstrap)   (1-marketplace cap)
           └─ Pro / Free ─► self-service install from marketplace            (opt-in, not enforced)
@@ -138,6 +139,12 @@ member's machine on login and re-syncs ~every 30 min** — *no MDM, no per-repo 
 cloud agents**. Precedence **Enterprise-managed > Team (dashboard) > Project > User**, so dashboard
 hooks outrank anything a user sets. This is the **silent alternative to the "Required" plugin**:
 same enforcement, nothing visible in a marketplace, nothing for the user to opt into.
+
+**Scale caveat.** The dashboard is a **manual per-hook form** (no `matcher`, and the Admin API does
+**not** cover hooks), so every hook — and every OS variant — is entered by hand and isn't
+versioned. Fine for a few hooks; **tedious and non-scalable** beyond that. For config-as-code /
+git-driven rollout, prefer the **GitHub-sourced plugin (A3)**; reach for cloud-dashboard hooks when
+you specifically need the **silent, people-tracking** delivery.
 
 It distributes **hook definitions (config), not the binary** — identical binary story to the no-MDM
 plugin. So a `sessionStart` hook runs the **bootstrap** to install the per-OS launcher, and the

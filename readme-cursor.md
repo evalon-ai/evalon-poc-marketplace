@@ -440,6 +440,22 @@ extensionless shebang file) makes Windows resolve it by **file association and o
 instead of running it; with an explicit `sh`/`powershell` prefix the launched program is the
 **interpreter**, so on a machine without it the hook simply **fails cleanly** (no editor).
 
+**If both interpreters are present (Windows + Git Bash), BOTH entries run.** Cursor executes every
+configured entry for an event, so with `sh` on PATH the bootstrap fires **twice** (once via `sh`,
+once via `powershell`) — risking double install/consolidation and `~/.cursor/hooks.json` races. Make
+each script **self-guard** so only the OS-correct one does work, and make the write **idempotent +
+lock-guarded**:
+```sh
+# bootstrap.sh — bail on Windows (Git Bash / MSYS / Cygwin)
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) exit 0 ;; esac
+```
+```powershell
+# bootstrap.ps1 — bail off Windows
+if (-not $IsWindows) { exit 0 }
+```
+⚠ Whether Cursor runs the two entries sequentially or concurrently is undocumented — assume
+concurrent (hence the lockfile).
+
 **Enforcement wiring (the real snag).** You can't name both `evalon-launcher` and
 `evalon-launcher.exe` in one entry, and **dual-listing a `failClosed` enforcement entry would block
 on the wrong OS** (its missing-path variant fails *closed*). So let the **bootstrap** — which already

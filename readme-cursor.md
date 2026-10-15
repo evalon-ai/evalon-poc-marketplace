@@ -61,7 +61,8 @@ MDM available (Jamf / Intune / Kandji)?          ← ask first
 │          • MDM runs an installer → system hooks.json + per-OS binaries → COMPLETE (one artifact)
 │          • CLI gap: cursor-agent may skip hooks — mitigate (AllowedTeamId account-lock + network/EDR egress); full close needs CLI hook parity or blocking the CLI
 │
-└─ NO MDM ─► vehicle depends on tier (binary always via the sh/PowerShell BOOTSTRAP: S3 + checksum, no Node/npx)
+└─ NO MDM ─► vehicle depends on tier (default binary path = sh/PowerShell BOOTSTRAP: S3 + checksum, no Node;
+          │             quick-win alt = npx plugin where Node is present — A5)
           │
           ├─ Enterprise ─► TWO options (can combine):
           │     ① TEAM MARKETPLACE "Required" PLUGIN — GitHub-sourced, auto-refresh, config-as-code
@@ -360,7 +361,7 @@ Node dependency the native-binary paths avoid. See **A5** for the
 // Effective hooks.json Cursor assembles on EVERY machine (one OS-independent entry)
 { "version": 1, "hooks": {
   "beforeShellExecution": [
-    { "command": "npx -y @evalon/cursor-hook", "failClosed": true }
+    { "command": "npx -y @evalon/cursor-hook", "failClosed": false }   // failClosed decision: see A5
   ]
 } }
 ```
@@ -407,9 +408,10 @@ evalon-bootstrap.sh, evalon-bootstrap.ps1
 ```
 ⚠ No `matcher` in the dashboard form → scope inside the launcher. ⚠ Validate dashboard delivery (reported stale-prone) and `.ps1` reliability on Windows.
 
-### A3 · Enterprise — our GitHub marketplace + a plugin bundling the hooks
-**Idea:** Evalon owns a marketplace repo (Enterprise allows multiple) holding one plugin that
-bundles the hooks; registered once and set **Required**.
+### A3 · Enterprise / Teams — our GitHub marketplace + a plugin bundling the hooks
+**Idea:** Evalon owns a marketplace repo (Enterprise allows multiple; on **Teams** it's the team's
+**one** marketplace — within the cap) holding one plugin that bundles the hooks; registered once and
+set **Required**.
 
 **Steps**
 1. Create the marketplace repo (tree below) and push.
@@ -479,8 +481,8 @@ once via `powershell`) — risking double install/consolidation and `~/.cursor/h
 each script **self-guard** so only the OS-correct one does work, and make the write **idempotent +
 lock-guarded**:
 ```sh
-# bootstrap.sh — bail on Windows (Git Bash / MSYS / Cygwin)
-case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) exit 0 ;; esac
+# bootstrap.sh — back off to the .ps1 on Windows: `powershell` is on PATH only on Windows
+command -v powershell >/dev/null 2>&1 && exit 0
 ```
 ```powershell
 # bootstrap.ps1 — bail off Windows

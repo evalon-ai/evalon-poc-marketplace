@@ -21,8 +21,9 @@ Evalon's hook-based agent on every Cursor dev machine: **central, ideally silent
   non-bypassable enforcement is required — see the decision tree and **Distribution vehicles** below.
 
 **Two implementation depths:**
-- **Quick win — `npx`, OS-agnostic (recipe A1):** one team hook running `npx @evalon/cursor-hook`,
-  the same entry on every OS. **Coverage gap:** machines **without Node** aren't protected.
+- **Quick win — a plugin whose `hooks.json` runs `npx`, OS-agnostic (recipe A5):** the same entry
+  on every OS (npm resolves the build); no per-OS dispatch, bootstrap, or native binary. **Coverage
+  gap:** machines **without Node** aren't protected.
 - **Full chain — no reliance on installed Node:**
   - **L1 Distribution** — the **plugin** (GitHub marketplace, "Required").
   - **L2 Trigger** — the plugin's **embedded hooks** (`hooks/hooks.json`).
@@ -347,7 +348,8 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 ### A1 · Enterprise cloud — one OS-independent config via `npx`
 **Idea:** a single team hook whose command is `npx`, so **one entry covers mac/win/linux** (npm
 resolves the right build). **Trade-off:** requires **Node/npx on every machine** — reintroduces the
-Node dependency the native-binary paths avoid.
+Node dependency the native-binary paths avoid. See **A5** for the
+**plugin-delivered** npx variant (the recommended quick win, consistent with shipping a plugin).
 
 **Steps**
 1. Publish the hook to npm as `@evalon/cursor-hook` (bin = a Node CLI that reads the hook JSON on stdin and prints the permission JSON on stdout).
@@ -525,4 +527,43 @@ evalon-cursor-plugin/
   bin/evalon-bootstrap.ps1
 ```
 ⚠ Auto-refresh of an **external** source is reported stale-prone → validate propagation. Note: plugin-bundled `hooks.json` **does** support `matcher` (unlike the dashboard form), so tool-scoping is available here.
+
+### A5 · Quick Win — a plugin whose `hooks.json` runs `npx` (OS-agnostic)
+**Idea:** the simplest ship — a **plugin** whose bundled `hooks.json` calls **`npx @evalon/cursor-hook`**.
+One entry works on every OS (npm resolves the right build), so **no per-OS dispatch (L3), no
+bootstrap, and no native binary (L4)**. Distributed like any plugin — marketplace **"Required"**
+(A3) or co-located in the customer's marketplace (A4). **Trade-off:** needs **Node/npx on the
+machine**; machines **without Node** are **unprotected** (the coverage gap).
+
+**Steps**
+1. Publish the hook to npm as `@evalon/cursor-hook` (bin = Node CLI; stdin→stdout permission JSON).
+2. Create the plugin (tree below) with a `hooks/hooks.json` that runs `npx`.
+3. Distribute it exactly like **A3** (own marketplace, "Required") or **A4** (co-locate in the customer's marketplace) — only the `hooks.json` contents differ.
+
+**Files created (in the plugin repo, or inside the marketplace repo as in A3)**
+```
+evalon-cursor-plugin/
+  .cursor-plugin/plugin.json
+  hooks/hooks.json
+# plus the npm package (NOT committed): @evalon/cursor-hook (package.json + dist/hook.js)
+```
+```json
+// .cursor-plugin/plugin.json
+{ "name": "evalon-guard", "version": "0.1.0",
+  "description": "Evalon policy-enforcement hooks (npx)",
+  "hooks": "hooks/hooks.json" }
+```
+```json
+// hooks/hooks.json — ONE OS-agnostic entry; npm resolves the right build per machine
+{ "version": 1, "hooks": {
+  "beforeShellExecution": [
+    { "command": "npx -y @evalon/cursor-hook", "failClosed": false }
+  ]
+} }
+```
+**Why it's the quick win:** the plugin *is* the whole install — no L3 dual-entry, no L4 staging, no
+first-run bootstrap window; `npx` handles OS/arch. ⚠ **`failClosed` decision:** with `npx`/Node
+**missing**, a `failClosed: true` entry would **block the dev**; set **`failClosed: false`** (shown)
+for the intended *coverage gap* — unprotected, not blocking — on Node-less machines. For full
+no-Node coverage, use the native-binary chain (**A3** + L3/L4).
 

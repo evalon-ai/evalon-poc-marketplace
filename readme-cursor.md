@@ -13,8 +13,10 @@ Evalon's hook-based agent on every Cursor dev machine: **central, ideally silent
 **Recommendation — ship a plugin from a GitHub marketplace.**
 - **Enterprise / Teams:** publish the plugin to **Evalon's GitHub marketplace**, register it, and set
   it **"Required"** — org-wide on **Enterprise**, or **per team** on **Teams** (**recipe A3**).
-- **Customer already runs a marketplace:** don't add a second one — **add Evalon's plugin to the
-  customer's marketplace** via an external-GitHub `source` entry (**recipe A4**).
+- **Teams + customer already uses their one marketplace:** the **1-marketplace-per-team cap**
+  (Teams only) blocks a second one, so **add Evalon's plugin to the customer's existing marketplace**
+  via an external-GitHub `source` entry (**recipe A4**). *(Enterprise has no cap — just add Evalon's
+  own marketplace, A3.)*
 - **Backup plan:** **MDM** (system-path `hooks.json` + binary) where it's available and silent,
   non-bypassable enforcement is required — see the decision tree and **Distribution vehicles** below.
 

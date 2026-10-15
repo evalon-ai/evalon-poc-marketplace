@@ -140,10 +140,39 @@ enforcement, MDM ships **hooks at the system path** (outranks user), not a "lock
   set the strictest value at team level. **Org-wide enforcement = MDM or Enterprise cloud hooks,
   not the marketplace.**
 - **1-marketplace-per-team (Teams):** cap is on **sources, not plugins** — one repo can hold many
-  plugins (`.cursor-plugin/marketplace.json`). Workaround: **add Evalon to the team's existing
-  marketplace** (no nesting/cascade exists; external-URL `source` undocumented, so vendor/submodule
-  into that repo). Lifting the cap = Enterprise or MDM.
+  plugins (`.cursor-plugin/marketplace.json`), and a plugin entry's `source` can point at an
+  **external GitHub repo**, so Evalon can co-locate in a team's existing marketplace and still
+  update from its own repo (see **Co-locating Evalon via external `source`** below). No
+  nesting/cascade between marketplaces exists. Lifting the cap = Enterprise or MDM.
 - **"Required" is admin-set**, not user-set; a user can only self-install (opt-in).
+
+### Co-locating Evalon via external `source` (no own marketplace needed)
+When a team has already spent its single marketplace, don't ask for a second one — add Evalon as an
+**entry in that repo's** `.cursor-plugin/marketplace.json`. A plugin `source` may be a **local
+path** *or* an **external GitHub repo object**, so Evalon's code stays in Evalon's repo and ships on
+push; they add the one entry once and never edit their repo again:
+
+```json
+// <their-marketplace-repo>/.cursor-plugin/marketplace.json
+{
+  "name": "acme-team-marketplace",
+  "plugins": [
+    { "name": "acme-internal", "source": "./plugins/acme-internal" },
+    { "name": "evalon-guard",
+      "source": { "type": "github", "owner": "evalon-ai", "repo": "evalon-cursor-plugin" } }
+  ]
+}
+```
+
+**Not a git submodule.** A submodule pins a commit (your push doesn't move their pointer — they'd
+`git submodule update --remote` + commit + push every release), and Cursor's marketplace reader
+almost certainly doesn't `--recurse-submodules`, so the files may not resolve at all. The native
+external `source` is the supported, update-on-push mechanism.
+
+*Validate (Cursor refresh is reported stale-prone):* (1) whether auto-refresh re-pulls the
+**external** source's new commits or only re-reads the marketplace repo — reports show auto-refresh
+missing plugin changes (manual Refresh + cache-clear + reinstall needed); (2) **bump the plugin
+`version` each release** so updates are detected rather than relying on "latest on branch".
 
 ## Automating config
 **Admin API** (`api.cursor.com`, Basic auth, Team+) automates: members/audit/usage/spend (read),
@@ -175,6 +204,7 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 - Hooks `deny` in the IDE per OS; native-`.exe` `command` with no shell on Windows.
 - MDM push of system `hooks.json` (mac `.mobileconfig`, Win ADMX, Linux `policy.json`).
 - Team Marketplace "Required" round-trip; cloud per-OS targeting syntax; Teams-tier admin-API key.
+- External-GitHub `source` in a shared marketplace: does auto-refresh propagate the **source** repo's new commits, or only the marketplace repo's? (reports show stale refresh).
 - Plugin per-OS without MDM: single host-native launcher reliability (Git-Bash PowerShell bug); two-command idiom unverified.
 - CLI (`cursor-agent`) hook coverage + closing the bypass.
 - Does a file-dropped local plugin (`~/.cursor/plugins/local/`) auto-activate, and can it be locked? (likely not — no MDM plugin-enable key).
@@ -198,7 +228,7 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 
 ## Sources
 - Hooks: cursor.com/docs/hooks · /docs/agent/hooks · /docs/reference/third-party-hooks
-- Plugins / marketplaces: cursor.com/docs/plugins · /docs/reference/plugins · /marketplace
+- Plugins / marketplaces: cursor.com/docs/plugins · /docs/plugins/building (marketplace.json `source`) · /docs/reference/plugins · /marketplace
 - Rules: cursor.com/docs/context/rules · MCP: /docs/mcp
 - Enterprise / MDM: cursor.com/docs/enterprise/deployment-patterns · /enterprise/model-and-integration-management · /enterprise/organizations
 - Teams / SSO / Admin API / SCIM / service accounts: cursor.com/docs/account/teams/{dashboard,sso,admin-api,scim} · /docs/api · /docs/account/enterprise/service-accounts

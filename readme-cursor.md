@@ -9,6 +9,27 @@
 Evalon's hook-based agent on every Cursor dev machine: **central, ideally silent enforcement**;
 **intercept & block**; **OS-agnostic** (mac/win/linux × x64/arm64); **no Node**.
 
+## Conclusions
+**Recommendation — ship a plugin from a GitHub marketplace.**
+- **Enterprise / Teams:** publish the plugin to **Evalon's GitHub marketplace**, register it, and set
+  it **"Required"** — org-wide on **Enterprise**, or **per team** on **Teams** (**recipe A3**).
+- **Customer already runs a marketplace:** don't add a second one — **add Evalon's plugin to the
+  customer's marketplace** via an external-GitHub `source` entry (**recipe A4**).
+- **Backup plan:** **MDM** (system-path `hooks.json` + binary) where it's available and silent,
+  non-bypassable enforcement is required — see the decision tree and **Distribution vehicles** below.
+
+**Two implementation depths:**
+- **Quick win — `npx`, OS-agnostic (recipe A1):** one team hook running `npx @evalon/cursor-hook`,
+  the same entry on every OS. **Coverage gap:** machines **without Node** aren't protected.
+- **Full chain — no reliance on installed Node:**
+  - **L1 Distribution** — the **plugin** (GitHub marketplace, "Required").
+  - **L2 Trigger** — the plugin's **embedded hooks** (`hooks/hooks.json`).
+  - **L3 OS handling** — **two entries per event**, a `.ps1` and a `.sh`. Because a Windows + Git-Bash
+    box can run **both**, the `.sh` **checks whether a PowerShell runner is present and backs off**
+    when it is (deferring to the `.ps1` on Windows) — so exactly one does the work.
+  - **L4 Runtime** — a **portable, self-contained runtime per OS/arch** (the Bun-compiled binary /
+    portable Node), so there's **no dependency on a system-installed Node**.
+
 ## Headline
 Ports well. **Cursor Hooks ≈ Claude Code hooks and can block** → "intercept & block" is met, and
 the **L4 portable runtime reuses as-is**. The divergence is **L1 distribution**: no silent

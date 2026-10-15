@@ -37,14 +37,22 @@ MDM available (Jamf / Intune / Kandji)?          ← ask first
 │          • MDM runs an installer → system hooks.json + per-OS binaries → COMPLETE (one artifact)
 │          • CLI gap: cursor-agent may skip hooks — mitigate (AllowedTeamId account-lock + network/EDR egress); full close needs CLI hook parity or blocking the CLI
 │
-└─ NO MDM ─► PLUGIN bundles the sh/PowerShell BOOTSTRAP → installs launcher (S3 + checksum)
-          │   plugin ships only the bootstrap + hook defs; no binary bundling, no Node/npx
+└─ NO MDM ─► vehicle depends on tier (binary always via the sh/PowerShell BOOTSTRAP: S3 + checksum, no Node/npx)
           │
-          ├─ Enterprise / Teams ─► team marketplace "Required"  (enforced; Teams = 1 marketplace)
-          │                         (Enterprise could instead use silent cloud-dashboard hooks)
-          └─ Pro / Free ─────────► self-service install from marketplace  (opt-in, not enforced)
+          ├─ Enterprise ─► TWO options (can combine):
+          │     ① CLOUD-DASHBOARD HOOKS — silent, no MDM, Enterprise-only. Configured in the web
+          │        dashboard, pushed to every member on login + re-synced ~30 min; OS-targeted;
+          │        also run in cloud agents. A sessionStart hook runs the bootstrap; enforcement
+          │        hooks point at the launcher.  ⚠ delivery sometimes doesn't materialize → validate.
+          │     ② TEAM MARKETPLACE "Required" PLUGIN — visible, can't-uninstall; bundles the same
+          │        bootstrap. Use for the plugin UX or when cloud delivery is unreliable.
+          │     (Prefer ① for silent / people-tracking enforcement; MDM still beats both if available.)
+          │
+          ├─ Teams ──────► team marketplace "Required" plugin (bootstrap)   (1-marketplace cap)
+          └─ Pro / Free ─► self-service install from marketplace            (opt-in, not enforced)
 
-          validate: Windows hook→PowerShell reliability; first-run enforce window; S3 egress
+          validate: Windows hook→PowerShell reliability; first-run enforce window; S3 egress;
+                    cloud-dashboard hook delivery (Enterprise)
 ```
 
 **No-MDM path — what "validate" means (these gate the plugin/bootstrap approach):**
@@ -120,6 +128,56 @@ enforcement, MDM ships **hooks at the system path** (outranks user), not a "lock
 **Binary delivery.** With **MDM**: the installer pre-places the binary — complete, no bootstrap. **Without MDM**: the **plugin bundles the sh/PowerShell bootstrap** (the launcher script you already have); on `sessionStart` it downloads + checksums the per-OS launcher from S3, installs it, and the enforcement hooks point at it. The plugin ships only the **small bootstrap + hook defs** — **no binary bundling, no Node/npx** (`sh` on mac/linux, PowerShell on Windows are the runtime). *Validate:* Windows hook→PowerShell reliability (Git-Bash-profile bug; execution policy), first-run enforcement window (fail-open vs block), S3 egress behind proxies.
 
 **Single artifact:** the enforced one-artifact deploy is an **MDM installer package** (system `hooks.json` + binaries). A **plugin can't reliably be that artifact via MDM** — a file-dropped local plugin (`~/.cursor/plugins/local/`) has **undocumented auto-activation** and **can't be locked** (no MDM plugin-enable key; local plugins are user-removable). The plugin UX is the marketplace "Required" path, not MDM.
+
+### Cloud-dashboard hooks (Enterprise) — the silent, no-MDM option
+**Enterprise-only.** Admins configure hooks in the **web dashboard**; Cursor **pushes them to every
+member's machine on login and re-syncs ~every 30 min** — *no MDM, no per-repo setup*. Coverage
+**tracks the person** (follows them into any repo they open), and the same hooks **also run inside
+cloud agents**. Precedence **Enterprise-managed > Team (dashboard) > Project > User**, so dashboard
+hooks outrank anything a user sets. This is the **silent alternative to the "Required" plugin**:
+same enforcement, nothing visible in a marketplace, nothing for the user to opt into.
+
+It distributes **hook definitions (config), not the binary** — identical binary story to the no-MDM
+plugin. So a `sessionStart` hook runs the **bootstrap** to install the per-OS launcher, and the
+enforcement hooks point at it; only the *delivery channel* differs (silent cloud push vs. visible
+plugin).
+
+**OS-specific config (L3 at the dashboard layer).** Cloud distribution can **target by OS**, so you
+register **one enforcement hook per platform**, each pointing at that platform's native launcher —
+no in-script `uname` branching. The dashboard's exact OS-target field is **not published**, so the
+shapes below are *illustrative* (the per-OS `command` is the real, verified part):
+
+```json
+// Illustrative — one entry per OS, distributed as the member's effective hooks.json.
+
+// macOS member
+{ "hooks": { "beforeShellExecution": [
+  { "command": "/Library/Application Support/Evalon/bin/evalon-hook-darwin-arm64", "failClosed": true } ] } }
+
+// Windows member
+{ "hooks": { "beforeShellExecution": [
+  { "command": "C:\\Program Files\\Evalon\\bin\\evalon-hook-windows-x64.exe", "failClosed": true } ] } }
+
+// Linux / WSL member
+{ "hooks": { "beforeShellExecution": [
+  { "command": "/opt/evalon/bin/evalon-hook-linux-x64", "failClosed": true } ] } }
+```
+
+Plus a per-OS `sessionStart` **bootstrap** entry (`sh` on mac/linux, PowerShell on Windows) that
+pre-stages the launcher before the enforcement hooks fire:
+
+```json
+// sessionStart bootstrap (per OS) — installs/updates the launcher, then enforcement hooks use it.
+{ "hooks": { "sessionStart": [
+  { "command": "/Library/Application Support/Evalon/bin/evalon-bootstrap.sh" } ] } }      // mac/linux
+{ "hooks": { "sessionStart": [
+  { "command": "powershell -ExecutionPolicy Bypass -File C:\\Program Files\\Evalon\\bin\\evalon-bootstrap.ps1" } ] } }  // windows
+```
+
+**Caveat — delivery reliability.** Dashboard hooks are **reported to sometimes not materialize** at
+the endpoint path Cursor reads; MDM-delivered `hooks.json` is the more reliable enforcement channel.
+On Enterprise: prefer **MDM if available**, use **cloud-dashboard hooks** as the silent no-MDM
+option, and **validate end-to-end delivery** (and the OS-target syntax) before relying on it.
 
 ## Enforcement vs. observation — only Hooks can block
 - **Hooks** — the **only** mechanism that intercepts/blocks the agent (`deny`/`ask`/`updated_input`).
@@ -203,7 +261,8 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 ## Validation gaps (POC)
 - Hooks `deny` in the IDE per OS; native-`.exe` `command` with no shell on Windows.
 - MDM push of system `hooks.json` (mac `.mobileconfig`, Win ADMX, Linux `policy.json`).
-- Team Marketplace "Required" round-trip; cloud per-OS targeting syntax; Teams-tier admin-API key.
+- Team Marketplace "Required" round-trip; Teams-tier admin-API key.
+- **Cloud-dashboard hooks (Enterprise):** end-to-end delivery to the endpoint path (reported to sometimes not materialize → MDM more reliable); the dashboard's per-OS targeting syntax.
 - External-GitHub `source` in a shared marketplace: does auto-refresh propagate the **source** repo's new commits, or only the marketplace repo's? (reports show stale refresh).
 - Plugin per-OS without MDM: single host-native launcher reliability (Git-Bash PowerShell bug); two-command idiom unverified.
 - CLI (`cursor-agent`) hook coverage + closing the bypass.

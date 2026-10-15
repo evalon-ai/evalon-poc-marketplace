@@ -340,6 +340,7 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 - Hooks: cursor.com/docs/hooks · /docs/agent/hooks · /docs/reference/third-party-hooks
 - Team-hooks dashboard form (fields, no-matcher, screenshots): https://forum.cursor.com/t/team-hooks-dashboard-does-not-allow-configuring-a-matcher/167411
 - Plugins / marketplaces: cursor.com/docs/plugins · /docs/plugins/building (marketplace.json `source`) · /docs/reference/plugins · /marketplace
+- Plugin update / Auto-Refresh sync delay (re-index at most once / ~10 min; IDE-lag reports): cursor.com/docs/plugins · forum.cursor.com/t/cursor-2-6-team-marketplaces-for-plugins/153484
 - Rules: cursor.com/docs/context/rules · MCP: /docs/mcp
 - Enterprise / MDM: cursor.com/docs/enterprise/deployment-patterns · /enterprise/model-and-integration-management · /enterprise/organizations
 - Teams / SSO / Admin API / SCIM / service accounts: cursor.com/docs/account/teams/{dashboard,sso,admin-api,scim} · /docs/api · /docs/account/enterprise/service-accounts

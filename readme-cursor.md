@@ -25,9 +25,9 @@ silent org-wide still needs **MDM or Enterprise cloud**.
 ## Decision tree — pick a vehicle
 
 **MDM is the primary question:** if available, it's the best path on **any tier** — the only
-channel that ships **both `hooks.json` and the binary**, silent and non-bypassable. Packaging
-options: **① `hooks.json`** (config; needs a binary channel) · **② plugin bundle** (hooks +
-assets, GitHub-synced, may carry the binary).
+channel that ships **both `hooks.json` and the binary** (one installer), silent and non-bypassable.
+**Without MDM**, distribution shifts to the **plugin/bootstrap** (all no-MDM tiers) — plus, on
+**Enterprise**, the alternative of **cloud-dashboard hooks**. See the branches below.
 
 ```
 MDM available (Jamf / Intune / Kandji)?          ← ask first
@@ -391,7 +391,7 @@ bundles the hooks; registered once and set **Required**.
 2. Install the **Cursor GitHub App** on it (enables Auto Refresh).
 3. Dashboard (Enterprise) → **Plugins → add team marketplace** → repo URL → **Enable Auto Refresh**.
 4. Set `evalon-guard` install mode → **Required**.
-5. Members receive it on next sync; the plugin's Session-Start bootstrap stages the launcher; the enforcement hook runs.
+5. Members receive it on next sync; the plugin's Session-Start bootstrap stages the launcher **and writes the OS-correct enforcement hook** (active from the next session — see *Enforcement wiring* below).
 
 **Files created (in the marketplace repo)**
 ```

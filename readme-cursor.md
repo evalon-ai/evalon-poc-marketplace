@@ -153,7 +153,7 @@ plugin).
 
 **OS-specific config — it's a dashboard _form_, not a file upload.** Each team hook is a **Command
 Hook created in the dashboard form**; its fields are **hook name · hook type · hook step** (the
-event, e.g. *Before Tool Use*) **· script content · supported operating systems**. **Per-OS
+event, e.g. *Before Tool Use*) **· script content · supported operating systems** ([form fields + screenshots](https://forum.cursor.com/t/team-hooks-dashboard-does-not-allow-configuring-a-matcher/167411)). **Per-OS
 targeting = the "Supported operating systems" field on each hook.** So you **do not upload a
 `hooks.json` per OS** — you **create one hook entry per OS**: same hook step, each with its own
 *script content* (pointing at that platform's launcher) and its own Supported-OS tag. Cursor
@@ -305,6 +305,7 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 
 ## Sources
 - Hooks: cursor.com/docs/hooks · /docs/agent/hooks · /docs/reference/third-party-hooks
+- Team-hooks dashboard form (fields, no-matcher, screenshots): https://forum.cursor.com/t/team-hooks-dashboard-does-not-allow-configuring-a-matcher/167411
 - Plugins / marketplaces: cursor.com/docs/plugins · /docs/plugins/building (marketplace.json `source`) · /docs/reference/plugins · /marketplace
 - Rules: cursor.com/docs/context/rules · MCP: /docs/mcp
 - Enterprise / MDM: cursor.com/docs/enterprise/deployment-patterns · /enterprise/model-and-integration-management · /enterprise/organizations

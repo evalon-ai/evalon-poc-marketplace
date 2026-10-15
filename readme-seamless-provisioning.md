@@ -12,12 +12,29 @@
 - **Delivery:** consumable by the hook programmatically, with **no manual per-machine/per-runner setup**.
 - **Dropped (per decision):** baking a per-customer artifact (**M1**) is out.
 
+## Conclusions
+
+### Claude Code
+- **(Recommended)** Set an `env` var `EVALON_ORG_ID` in managed settings; the hook reads it. **Validated locally.**
+- Alternative: a plugin option → `$CLAUDE_PLUGIN_OPTION_ORG_ID` (M6) — more plugin-native.
+- *Watch:* only the on-device file was tested, not console delivery; Team/Enterprise only; Bedrock/Vertex users skip the fetch.
+
+### Cursor
+- **(Recommended)** Have the **hook read the plugin parameter directly** — cleanest if it works (no MCP, no email). *Untested → confirm with a quick test.*
+- Fallback: send the **Cursor login email**; map its domain → org in our backend. *Reliably delivered; needs enforced SSO; breaks on multi-domain orgs, contractors, and gmail.*
+- Last resort: **MCP-server bridge** (server reads the parameter, writes a file, hook reads it). *Fragile — MCP server launch/timing isn't guaranteed (may start late or never).*
+
+### Codex
+- **(Recommended)** **M4** — an admin-set, org-wide `SessionStart` hook writes an **Evalon-assigned token** to a file the hook reads. *Clean 1:1 per customer; needs enterprise managed config.*
+- Alternative: the hook reads the **ChatGPT workspace id** from `~/.codex/auth.json` and tags events; the admin reports it from the dashboard; we match (and union) in the backend. *ChatGPT login only; not the API `org-…`.*
+- *Watch:* **no single-per-org id exists** that a hook can read locally *and* an admin can report — the local id is **per-workspace** (several per company → union in our backend), `org-…` needs a secret and isn't 1:1 either, and the company-level "Tenant" id isn't locally exposed. So **M4's assigned token is the clean 1:1 key**; the workspace id is a secondary signal to union.
+
 ## TL;DR
 | | Claude Code | Cursor | Codex |
 |---|---|---|---|
 | **M2 · managed value → hook** (platform-distributed) | ✅ managed `env` var (console) — **env→hook validated locally** | ⚠ **undocumented & UNTESTED for hooks** — `variables` is official but exemplified only for `mcp.json`; hook schema shows no `env`/`args`/`${VAR}`, and no example confirms a hook reading one (none proves it fails either). **Test before relying**; proven paths = `user_email` / M4 | ❌ **for plugin delivery** — no platform-distributed value reaches a plugin hook (no `variables`, env-policy, or args); ✅ only via **non-plugin managed `hooks.json`** command args |
 | **M3 · native org id in hook context** (stdin/env) | ❌ none in stdin/env | ❌ none (only `user_email`) | ❌ none in stdin/env |
-| **M3-id · native hash-grade org id exists?** | ✅ org **UUID** | ❌ team id = **sequential int** | ✅ API `org-…` / workspace **UUID** |
+| **M3-id · native hash-grade org id exists?** | ✅ org **UUID** (1:1) | ❌ team id = **sequential int** | ⚠ `org-…` / workspace **UUID** exist but **not 1:1 per org** (several workspaces; `org-…` unreachable without a secret) |
 | **M3-local · extract org id from machine state** | ✅ `~/.claude.json` → `oauthAccount.organizationUuid` (⚠ undocumented) | ❌ only a secret JWT; no non-secret hash id | ⚠ ChatGPT mode: `~/.codex/auth.json` account-id (undocumented) |
 | **M4 · managed Startup hook → `~/.evalon/org_id`; plugin reads file** | ✅ server-managed `SessionStart` hook (or just M2 env) | ✅ **Enterprise** team `sessionStart` / **MDM** (❌ Teams·Pro w/o MDM) | ✅ managed `SessionStart` hook — **how a Codex plugin gets the id** |
 | **M5-email · authenticated email in hook** (per-user) | ❌ none | ✅ `user_email` (trustworthy under enforced SSO) | ❌ none |
@@ -27,8 +44,8 @@
 
 **Bottom line:** **no platform injects a native org id into the hook (M3 fails everywhere)**, and **M2 works on Claude only**. Per-platform:
 - **Claude = M2 managed `env` var** ✅ (value = the native org UUID).
-- **Cursor = `user_email` + enforced SSO** (M2 ⚠ untested for hooks; no usable native/local org id), or **M4** (admin hook writes the id to a file).
-- **Codex (plugin) = M3-local** — read `auth.json` `chatgpt_account_id`, cache in `PLUGIN_DATA` (M2 ❌ for plugin delivery).
+- **Cursor =** test **plugin-param→hook** (clean if it works); else **`user_email` + enforced SSO** (map domain→org); **MCP bridge** is a fragile last resort.
+- **Codex (plugin) = M4** (admin hook writes an Evalon-assigned token) — clean 1:1; or read the **ChatGPT workspace id** from `auth.json` + admin reports it (⚠ not 1:1 per org → union). M2 ❌ for plugin delivery.
 
 An **MDM-dropped `org_id` file** read by the hook is the common non-native fallback for an opaque admin-assigned id. All local-extraction / undocumented fields → version-guard.
 
@@ -115,6 +132,7 @@ Prefer **M2 managed `env`**, value = the **native `organizationUuid`** (admin pa
 The one plugin component that **can** read a plugin `variable` is the plugin's **MCP server** (hooks are variable-blind; commands/agents are markdown; there is no install script). The working bridge:
 **admin sets the plugin variable → Cursor launches the plugin's MCP server with `env: { "EVALON_ORG_ID": "${EVALON_ORG_ID}" }` (✅ verified: the server receives the dashboard value) → the MCP server writes `$EVALON_ORG_ID` to `~/.evalon/org_id` on startup → the plugin's hooks read the file.**
 ⚠ **MCP start-timing is undocumented and racy.** Cursor doesn't document when the stdio server spawns (eager vs. lazy), and there are known bugs (servers not auto-starting / "0 tools until toggled" / SIGKILL-after-init). On a **cold first session** the file may not exist when early hooks fire — acceptable if the hook **degrades gracefully** (empty org, report-later) and the server **rewrites every startup** (steady-state self-heals). Harden: expose **one trivial tool** (0-tool servers are the ones most prone to not starting) and **validate empirically** that the server spawns before your earliest hook on a cold install.
+**Lifecycle facts (verified):** Cursor does **not** document whether/when the server auto-starts, and there is **no `autostart`/eager flag** (stdio config is just `command`/`args`/`env`/`envFile`; enable is a UI toggle). **Do not start-then-exit** — a stdio server that exits right after `initialize` registers as *failed* ("No server info found" / "Client closed"), and some builds **SIGKILL it ~1.5 s after init**. **Pattern:** write the file as the **very first action on boot**, then **stay alive** (answer `initialize`, expose one no-op tool, idle).
 
 ### Native org id & local extraction ❌
 - Cursor's only org/team id is the **small sequential integer** team id (`cursorAuth.allowedTeamId`, e.g. `"1,3,7"`; `AllowedTeamId` MDM key) — **non-secret but NOT hash-grade**, and not a session "active-org" signal.
@@ -165,17 +183,16 @@ hook subprocesses** (plugin hooks receive only `PLUGIN_ROOT`, `PLUGIN_DATA`, `CL
 - **(⚠ unverified) Custom `config.toml` key:** the hook reads e.g. `[evalon].org_id` from `~/.codex/config.toml` set via cloud-managed config — but whether Codex preserves unknown keys through managed-config resolution is **unverified**; test first.
 
 ### Native org id & local extraction
-- Native ids (both **hash-grade, non-secret, admin-fetchable from the dashboard**): **API `org-…`** (platform.openai.com → Settings → Organization) and the **ChatGPT workspace UUID** (ChatGPT **workspace admin settings**). ⚠ **Two different realms** — the id the plugin local-extracts (`chatgpt_account_id`) is the **ChatGPT workspace UUID**, so the customer reports *that* (not the API `org-…`). **Neither is injected into the hook → M3 ❌.**
+- Native ids (both **hash-grade, non-secret, admin-fetchable from the dashboard**): **API `org-…`** (platform.openai.com → Settings → Organization) and the **ChatGPT workspace UUID** (ChatGPT **workspace admin settings**). ⚠ **Two different realms** — the id the plugin local-extracts (`chatgpt_account_id`) is the **ChatGPT workspace UUID**, so the customer reports *that* (not the API `org-…`). **Neither is injected into the hook → M3 ❌**, and ⚠ **neither is guaranteed 1:1 per customer** (a company can run several workspaces / API orgs).
 - **M3-local ⚠ (ChatGPT sign-in only, undocumented):** `~/.codex/auth.json` → **`tokens.account_id`**, or base64url-decode the `id_token` → **`["https://api.openai.com/auth"].chatgpt_account_id`** = opaque **UUID**. Read the **account-id only, never the token fields**. ⚠ internal/undocumented → version-guard. **API-key mode:** `org-…` is **not** written to local state → requires an API call.
 - **Authenticated email (per-user):** the `email` claim inside `~/.codex/auth.json`'s `id_token` (base64url-decode). `codex login status` reports the auth **method** (exits 0 if logged in), not reliably the email.
 
 ### Recommendation — Codex
 If hooks are distributed as a **managed `hooks.json`**, prefer **M2 — command args** (verified).
-**If hooks are bundled in a plugin** (Evalon's current plan), command args don't apply and Codex has
-**no plugin-variable/env path** → **local-derive + cache in `PLUGIN_DATA`** (read `auth.json`
-`chatgpt_account_id` on `SessionStart`; ChatGPT-auth) or an **MDM-dropped `org_id` file** at a fixed
-path for an admin-assigned id. Not `shell_environment_policy` (shell-tool only) and not a plugin
-manifest variable (none exists).
+**If hooks are bundled in a plugin** (Evalon's plan), Codex has **no plugin-variable/env path**, so:
+- **(Recommended) M4 / admin-assigned token** — a managed `SessionStart` hook (or MDM-dropped file) writes an **Evalon-assigned opaque id** the hook reads: clean **1:1 per customer**.
+- **Alternative — local-derive:** read `auth.json` `chatgpt_account_id` on `SessionStart`, cache in `PLUGIN_DATA`; ⚠ this is the **workspace id, not 1:1 per org** (a company can run several) → backend must **union**, and it's **ChatGPT-auth only**.
+Not `shell_environment_policy` (shell-tool only) and not a plugin manifest variable (none exists).
 
 ---
 
@@ -192,7 +209,7 @@ manifest variable (none exists).
 ## Cross-platform recommendation
 1. **M2 (managed value → hook):** **Claude ✅** (managed `env` var). **Cursor ⚠** (plugin `variables`→hook undocumented/untested) → proven paths **`user_email` + SSO** or **M4**. **Codex (plugin) ❌** → **M3-local** or **M4**; command-args M2 only for a non-plugin managed `hooks.json`.
 2. **Value to use:** the platform's **native hash-grade org id** where it exists (Claude `organizationUuid`; OpenAI `org-…` / workspace UUID) — the customer reads it from their console once and the admin sets it (or local-extracts it). For **Cursor** there's no usable org id in-context → attribute via **`user_email`** (map to org) or an MDM-dropped opaque id.
-3. **M3-local** = the **primary** path for a **Codex plugin** (ChatGPT-mode `auth.json` account-id) and a zero-config **fallback** on **Claude** (`~/.claude.json` → `oauthAccount.organizationUuid`); **unavailable** for Cursor. All undocumented → read one field, version-guard, tolerate absence.
+3. **M3-local** — a zero-config **fallback** on **Claude** (`~/.claude.json` → `oauthAccount.organizationUuid`, 1:1 per org); on **Codex** it yields the **workspace id** (⚠ **not 1:1 per org** — may need to union; prefer **M4**'s assigned token for a clean key); **unavailable** on Cursor. All undocumented → read one field, version-guard, tolerate absence.
 4. **Granularity:** per-(platform × org) falls out naturally — each platform's id namespace is distinct; Evalon maps `(platform, id) → customer`.
 
 ## Validation gaps / to confirm

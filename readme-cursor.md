@@ -103,8 +103,10 @@ points at the per-OS native binary (no shell) —
 via confirmed `${CURSOR_PLUGIN_ROOT}` expansion; prefer **one host-native launcher per OS**
 selected by a fail-open bootstrap. The community `sh`+`powershell` dual-entry idiom is
 **unverified** (not in official docs/plugins; breaks when the terminal profile is **Git Bash** —
-PowerShell bootstrap bug). **Enterprise cloud** offers dashboard *"OS targeting for
-platform-specific hooks"* (syntax not exposed).
+PowerShell bootstrap bug). **Enterprise cloud** does L3 at the delivery
+layer: each dashboard hook has a **"Supported operating systems"** field, so you author one hook
+entry per OS (no in-file branching) — but that form has **no `matcher`**, so tool-scoping must live
+in the script.
 
 **L4 — Runtime.** Hook `command` is any executable (Bash/Python/Bun shown; **no Node**). The
 Bun-compiled portable runtime + launcher drop in unchanged across all 6 targets.
@@ -142,29 +144,36 @@ plugin. So a `sessionStart` hook runs the **bootstrap** to install the per-OS la
 enforcement hooks point at it; only the *delivery channel* differs (silent cloud push vs. visible
 plugin).
 
-**OS-specific config (L3 at the dashboard layer).** Cloud distribution can **target by OS**, so you
-register **one enforcement hook per platform**, each pointing at that platform's native launcher —
-no in-script `uname` branching. The dashboard's exact OS-target field is **not published**, so the
-shapes below are *illustrative* (the per-OS `command` is the real, verified part):
+**OS-specific config — it's a dashboard _form_, not a file upload.** Each team hook is a **Command
+Hook created in the dashboard form**; its fields are **hook name · hook type · hook step** (the
+event, e.g. *Before Tool Use*) **· script content · supported operating systems**. **Per-OS
+targeting = the "Supported operating systems" field on each hook.** So you **do not upload a
+`hooks.json` per OS** — you **create one hook entry per OS**: same hook step, each with its own
+*script content* (pointing at that platform's launcher) and its own Supported-OS tag. Cursor
+**delivers each hook only to matching-OS machines** and assembles the machine-side `hooks.json`
+itself, so the file a given machine ends up with is a plain single-OS file (the entry schema has
+**no OS field**):
 
 ```json
-// Illustrative — one entry per OS, distributed as the member's effective hooks.json.
+// What ONE machine receives (Cursor-assembled). You author the equivalent per-OS entries in the
+// dashboard FORM (script content + Supported-OS) — NOT as an uploaded hooks.json file.
 
-// macOS member
-{ "hooks": { "beforeShellExecution": [
+// macOS machine → effective hooks.json
+{ "version": 1, "hooks": { "beforeShellExecution": [
   { "command": "/Library/Application Support/Evalon/bin/evalon-hook-darwin-arm64", "failClosed": true } ] } }
-
-// Windows member
-{ "hooks": { "beforeShellExecution": [
+// Windows machine → effective hooks.json
+{ "version": 1, "hooks": { "beforeShellExecution": [
   { "command": "C:\\Program Files\\Evalon\\bin\\evalon-hook-windows-x64.exe", "failClosed": true } ] } }
-
-// Linux / WSL member
-{ "hooks": { "beforeShellExecution": [
-  { "command": "/opt/evalon/bin/evalon-hook-linux-x64", "failClosed": true } ] } }
 ```
 
-Plus a per-OS `sessionStart` **bootstrap** entry (`sh` on mac/linux, PowerShell on Windows) that
-pre-stages the launcher before the enforcement hooks fire:
+**⚠ No `matcher` in the dashboard form.** The form exposes no `matcher` field (open feature
+request), so dashboard team hooks **can't be scoped to specific tools/commands** — the hook fires
+broadly and Evalon must **filter inside its own script**, or fall back to MDM/project `hooks.json`
+(which *do* support `matcher`) where tool-level scoping matters.
+
+You add the **bootstrap** the same way — another hook entry with **hook step = Session Start**,
+*script content* = the per-OS bootstrap (`sh` on mac/linux, PowerShell on Windows), Supported-OS set
+per platform — so the launcher is pre-staged before the enforcement hooks fire:
 
 ```json
 // sessionStart bootstrap (per OS) — installs/updates the launcher, then enforcement hooks use it.
@@ -177,7 +186,9 @@ pre-stages the launcher before the enforcement hooks fire:
 **Caveat — delivery reliability.** Dashboard hooks are **reported to sometimes not materialize** at
 the endpoint path Cursor reads; MDM-delivered `hooks.json` is the more reliable enforcement channel.
 On Enterprise: prefer **MDM if available**, use **cloud-dashboard hooks** as the silent no-MDM
-option, and **validate end-to-end delivery** (and the OS-target syntax) before relying on it.
+option, and **validate end-to-end delivery** before relying on it (two open unknowns remain: the
+Supported-OS field's granularity/labels, and whether *script content* can reference a path or is
+inline-only).
 
 ## Enforcement vs. observation — only Hooks can block
 - **Hooks** — the **only** mechanism that intercepts/blocks the agent (`deny`/`ask`/`updated_input`).
@@ -262,7 +273,7 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 - Hooks `deny` in the IDE per OS; native-`.exe` `command` with no shell on Windows.
 - MDM push of system `hooks.json` (mac `.mobileconfig`, Win ADMX, Linux `policy.json`).
 - Team Marketplace "Required" round-trip; Teams-tier admin-API key.
-- **Cloud-dashboard hooks (Enterprise):** end-to-end delivery to the endpoint path (reported to sometimes not materialize → MDM more reliable); the dashboard's per-OS targeting syntax.
+- **Cloud-dashboard hooks (Enterprise):** end-to-end delivery to the endpoint path (reported to sometimes not materialize → MDM more reliable); Supported-OS field granularity/labels; **no `matcher` in the dashboard form** → tool-scoping must be in-script.
 - External-GitHub `source` in a shared marketplace: does auto-refresh propagate the **source** repo's new commits, or only the marketplace repo's? (reports show stale refresh).
 - Plugin per-OS without MDM: single host-native launcher reliability (Git-Bash PowerShell bug); two-command idiom unverified.
 - CLI (`cursor-agent`) hook coverage + closing the bypass.

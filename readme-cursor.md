@@ -132,7 +132,7 @@ enforcement, MDM ships **hooks at the system path** (outranks user), not a "lock
 **Single artifact:** the enforced one-artifact deploy is an **MDM installer package** (system `hooks.json` + binaries). A **plugin can't reliably be that artifact via MDM** — a file-dropped local plugin (`~/.cursor/plugins/local/`) has **undocumented auto-activation** and **can't be locked** (no MDM plugin-enable key; local plugins are user-removable). The plugin UX is the marketplace "Required" path, not MDM.
 
 ### Cloud-dashboard hooks (Enterprise) — the silent, no-MDM option
-**Enterprise-only.** Admins configure hooks in the **web dashboard**; Cursor **pushes them to every
+**Enterprise-only.** Admins configure hooks in the **web dashboard** ([https://cursor.com/dashboard/team-content?section=hooks](https://cursor.com/dashboard/team-content?section=hooks), Enterprise login); Cursor **pushes them to every
 member's machine on login and re-syncs ~every 30 min** — *no MDM, no per-repo setup*. Coverage
 **tracks the person** (follows them into any repo they open), and the same hooks **also run inside
 cloud agents**. Precedence **Enterprise-managed > Team (dashboard) > Project > User**, so dashboard
@@ -320,7 +320,7 @@ Node dependency the native-binary paths avoid.
 
 **Steps**
 1. Publish the hook to npm as `@evalon/cursor-hook` (bin = a Node CLI that reads the hook JSON on stdin and prints the permission JSON on stdout).
-2. Dashboard → **Team Hooks → Create Command Hook**: step **Before Tool Use**; script content `npx -y @evalon/cursor-hook`; Supported OS **macOS + Windows + Linux** (all).
+2. Dashboard ([https://cursor.com/dashboard/team-content?section=hooks](https://cursor.com/dashboard/team-content?section=hooks)) → **Team Hooks → Create Command Hook**: step **Before Tool Use**; script content `npx -y @evalon/cursor-hook`; Supported OS **macOS + Windows + Linux** (all).
 3. Save → syncs to members (~30 min / next login).
 
 ```json
@@ -347,7 +347,7 @@ stages the binary first.
 
 **Steps**
 1. Host the 6 native launchers + `bootstrap.sh`/`bootstrap.ps1` (e.g. S3 + checksums).
-2. Dashboard → create, per OS: a **Session Start** hook (script content = that OS's bootstrap; Supported OS = that OS) **and** a **Before Tool Use** hook (script content = that OS's launcher path; Supported OS = that OS; `failClosed`).
+2. Dashboard ([https://cursor.com/dashboard/team-content?section=hooks](https://cursor.com/dashboard/team-content?section=hooks)) → create, per OS: a **Session Start** hook (script content = that OS's bootstrap; Supported OS = that OS) **and** a **Before Tool Use** hook (script content = that OS's launcher path; Supported OS = that OS; `failClosed`).
 3. Save → Cursor delivers each entry only to matching-OS machines.
 
 ```json

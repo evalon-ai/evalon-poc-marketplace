@@ -310,8 +310,8 @@ under the CLI it's an enforcement escape. No clean fix: `AllowedTeamId` only loc
 > published — validate). ✅ `hooks.json` entry schema (`version`, `command`, `type`, `matcher`,
 > `timeout`, `loop_limit`, `failClosed`); ✅ `marketplace.json` `source` (local path **or**
 > `{type,owner,repo}`); ✅ dashboard team-hook form fields (name, type, step, script content,
-> supported OS; **no `matcher`**); ✅ `${CURSOR_PLUGIN_ROOT}` expansion. ⚠ plugin manifest keys and
-> plugin→hooks wiring.
+> supported OS; **no `matcher`**); ✅ `${CURSOR_PLUGIN_ROOT}` expansion; ✅ plugin.json fields + `hooks` wiring
+> (cursor/plugins `plugin.schema.json`).
 
 ### A1 · Enterprise cloud — one OS-independent config via `npx`
 **Idea:** a single team hook whose command is `npx`, so **one entry covers mac/win/linux** (npm
@@ -401,17 +401,46 @@ evalon-cursor-marketplace/
   "plugins": [ { "name": "evalon-guard", "source": "./plugins/evalon-guard" } ] }
 ```
 ```json
-// plugins/evalon-guard/.cursor-plugin/plugin.json                   ⚠ keys illustrative
-{ "name": "evalon-guard", "version": "0.1.0", "description": "Evalon policy-enforcement hooks" }
+// plugins/evalon-guard/.cursor-plugin/plugin.json      ✅ fields per cursor/plugins plugin.schema.json
+{
+  "name": "evalon-guard",
+  "version": "0.1.0",
+  "description": "Evalon policy-enforcement hooks",
+  "hooks": "hooks/hooks.json"
+}
+// `hooks` (string | object) = path to a hooks file OR an inline hooks object. Omit it and Cursor
+// AUTO-DISCOVERS the conventional hooks/hooks.json. (Other optional keys: author, repository,
+// rules, skills, commands, mcpServers, variables …)
 ```
 ```json
-// plugins/evalon-guard/hooks/hooks.json   (bundled; ${CURSOR_PLUGIN_ROOT} ✅ expands)
+// plugins/evalon-guard/hooks/hooks.json
+// Wiring: referenced by plugin.json "hooks", or auto-discovered at this conventional path.
+// Command paths are relative to THIS file (${CURSOR_PLUGIN_ROOT} also expands).
 { "version": 1, "hooks": {
-  "sessionStart":         [ { "command": "sh ${CURSOR_PLUGIN_ROOT}/bin/evalon-bootstrap.sh" } ],
-  "beforeShellExecution": [ { "command": "${CURSOR_PLUGIN_ROOT}/bin/evalon-launcher", "failClosed": true } ]
+  // A plugin ships ONE hooks.json to every OS and entries have NO os field, so dispatch by listing
+  // BOTH bootstraps: each interpreter exists only on its own OS, the other no-ops. Keep fail-open.
+  "sessionStart": [
+    { "command": "sh ./bin/evalon-bootstrap.sh" },
+    { "command": "powershell -ExecutionPolicy Bypass -File ./bin/evalon-bootstrap.ps1" }
+  ]
 } }
 ```
-⚠ Plugin→hooks wiring (does Cursor auto-load `hooks/hooks.json`, or must `plugin.json` reference it?) is undocumented — validate. ⚠ One `command` per entry → use a host-native `evalon-launcher` that self-selects arch, or stage per-OS via the bootstrap (Windows `.ps1` caveat).
+**Plugin→hooks wiring (✅ resolved).** `plugin.json` has a `hooks` field (`string | object`) — a
+path to a hooks file or an inline hooks object; omit it and Cursor **auto-discovers `hooks/hooks.json`**.
+Either way the plugin's hooks load with no extra config.
+
+**What picks sh vs powershell (✅ answered).** Nothing in the config — a plugin can't branch by OS.
+The `sessionStart` entry lists **both** bootstraps; the wrong-OS one no-ops because that interpreter
+is absent (so keep them **fail-open**). ⚠ *Git-Bash caveat:* if the Windows terminal profile is Git
+Bash, `sh` **is** present, so the `sh` entry also runs on Windows — guard inside the script.
+
+**Enforcement wiring (the real snag).** You can't name both `evalon-launcher` and
+`evalon-launcher.exe` in one entry, and **dual-listing a `failClosed` enforcement entry would block
+on the wrong OS** (its missing-path variant fails *closed*). So let the **bootstrap** — which already
+knows its OS — install the native launcher **and write the OS-correct `beforeShellExecution` entry
+to `~/.cursor/hooks.json` (or a system path)**. The plugin reliably contributes only the fail-open
+`sessionStart` dual-bootstrap; the enforcement hook is written by whichever bootstrap ran. (Or
+sidestep with A1's `npx`/`node` single cross-OS command, at the cost of a Node dependency.)
 
 ### A4 · Teams — add our plugin to the team's existing marketplace (external `source`)
 **Idea:** the team keeps its one marketplace; Evalon lives in **its own** repo and is referenced by
@@ -437,7 +466,7 @@ an **external-GitHub `source`** entry, so it updates on push without touching th
 **Files created (in Evalon's own repo `evalon-cursor-plugin`)**
 ```
 evalon-cursor-plugin/
-  .cursor-plugin/plugin.json      # ⚠ keys illustrative
+  .cursor-plugin/plugin.json      # ✅ name + `hooks` field (plugin.schema.json)
   hooks/hooks.json                # same bundled hooks as A3 (${CURSOR_PLUGIN_ROOT})
   bin/evalon-bootstrap.sh
   bin/evalon-bootstrap.ps1

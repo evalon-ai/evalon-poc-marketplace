@@ -33,6 +33,13 @@ Evalon's hook-based agent on every Cursor dev machine: **central, ideally silent
   - **L4 Runtime** — a **portable, self-contained runtime per OS/arch** (the Bun-compiled binary /
     portable Node), so there's **no dependency on a system-installed Node**.
 
+**Updatability — start quick, upgrade in place.** Both depths ship as the **same plugin**, so moving
+from the **quick win** (L1 + L2 + `npx`, A5) to the **full chain** (L1–L4 native, no Node) is just a
+**new plugin version**: publish it to the marketplace and **Auto Refresh propagates it
+automatically** — Cursor re-indexes the marketplace **at most once every ~10 min** after a push (the
+IDE then pulls the new copy, sometimes slower/less reliably). No re-provisioning or customer action;
+**bump the plugin `version`** to signal the update.
+
 ## Headline
 Ports well. **Cursor Hooks ≈ Claude Code hooks and can block** → "intercept & block" is met, and
 the **L4 portable runtime reuses as-is**. The divergence is **L1 distribution**: no silent
@@ -232,8 +239,9 @@ inline-only).
 
 ## GitHub source · per-team · per-org
 - **GitHub as source:** ✅ via **Team Marketplaces** — import a repo, "Enable Auto Refresh"
-  (needs Cursor GitHub App) re-indexes on push (≤10 min). Not a silent push; dashboard-registered,
-  per-team, "Required" install.
+  (needs Cursor GitHub App) re-indexes on push (**at most once / ~10 min**; rapid pushes batched to
+  the latest commit; the dashboard updates in ~1–2 min, the IDE then pulls its local copy, sometimes
+  slower/less reliably). Not a silent push; dashboard-registered, per-team, "Required" install.
 - **Per team:** ✅ Team Rules (Teams+, mandatory), marketplace "Required" plugins, MCP lock (Enterprise).
 - **Per org:** the Organization→Teams hierarchy + Org Groups is **Enterprise only**, and governs
   identity/spend/models — **not** plugin marketplaces (silent). On **Teams** tier there is no

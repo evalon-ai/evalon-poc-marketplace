@@ -34,24 +34,23 @@ Legend: ✅ met · ⚠ partial or untested · ❌ not met
 
 | Req | Claude Code | Cursor | Codex |
 |---|---|---|---|
-| **R1** Native, central | ✅ Plugin marketplace + managed settings | ✅ Team marketplace, Enterprise cloud hooks or MDM | ✅ Managed `requirements.toml` + workspace plugin or MDM package |
-| **R2** Admin-managed | ✅ Managed settings win; plugin is force-enabled. ⚠ A managed hooks change may show a one-time approval dialog | ✅ MDM / Enterprise cloud hooks. ⚠ Teams: "Required" plugin can't be uninstalled but is visible | ✅ Managed hooks can't be disabled by users. Plugin hooks alone are user-level, so enforcement lives in requirements |
-| **R3** Setup | ✅ Paste JSON in the admin console | **Enterprise** ✅ Add Evalon's marketplace, set the plugin to "Required". **Teams** ⚠ Per team; only one marketplace allowed, so add our plugin to the team's existing marketplace if it has one | ⚠ Plugin: import once **per workspace**, UI only. Requirements: paste TOML. Sign-in lock: needs MDM |
+| **R1** Native, central | ✅ Plugin marketplace + managed settings | ✅ Team marketplace, Enterprise cloud hooks or MDM | ✅ Managed `requirements.toml` (Admin Console or MDM); handler via hash-pinned installer or MDM package |
+| **R2** Admin-managed | ✅ Managed settings win; plugin is force-enabled. ⚠ A managed hooks change may show a one-time approval dialog | ✅ MDM / Enterprise cloud hooks. ⚠ Teams: "Required" plugin can't be uninstalled but is visible | ✅ Managed hooks can't be disabled by users (plugin hooks can, so no plugin) |
+| **R3** Setup | ✅ Paste JSON in the admin console | **Enterprise** ✅ Add Evalon's marketplace, set the plugin to "Required". **Teams** ⚠ Per team; only one marketplace allowed, so add our plugin to the team's existing marketplace if it has one | ✅ Paste TOML in the Admin Console, once per workspace. ⚠ Sign-in lock needs MDM |
 | **R4** OS / arch | ✅ One `sh` script (Git Bash on Windows). ⚠ Linux untested | ⚠ No per-OS field; needs `sh` + `.ps1` entries | ✅ `command` + `command_windows`. ⚠ Untested |
 | **R5** No runtime | ⚠ Portable runtime; tested on macOS only | ⚠ Same; the `npx` quick win needs Node | ⚠ Same; untested |
 | **R6** Seamless tenant | ✅ Managed `env` var (tested locally) | ⚠ Plugin variable → hook untested; fallback: SSO email domain | ⚠ Admin-set managed hook with an Evalon ID; or the ChatGPT workspace ID (not 1:1 per org) |
 | **R7** Block | ✅ | ✅ | ✅ ❌ WebSearch isn't hooked |
-| **R8** Surfaces | ✅ CLI, IDE. ⚠ Bedrock/Vertex skip managed settings | ⚠ IDE ✅; CLI has limited hooks | ⚠ CLI, app ✅. IDE: no plugins. Cloud runs: `mcp_tool` hooks only |
+| **R8** Surfaces | ✅ CLI, IDE. ⚠ Bedrock/Vertex skip managed settings | ⚠ IDE ✅; CLI has limited hooks | ⚠ CLI, app ✅; IDE ⚠ untested. Cloud runs: `mcp_tool` hooks only |
 | **R9** Fail-open | ✅ Default | ✅ Default (leave `failClosed` unset) | ✅ Default |
-| **N1** Updates | ✅ Marketplace auto-update | ✅ Auto-refresh (~10 min) | ✅ Plugin daily sync; MDM path via our updater |
+| **N1** Updates | ✅ Marketplace auto-update | ✅ Auto-refresh (~10 min) | ✅ Handler self-updates (our updater) |
 | **N2** Drift | ⚠ To build (heartbeat) | ⚠ To build | ⚠ To build |
 | **N3** No MDM | ✅ | ⚠ Enterprise or Teams only | ⚠ Works, but personal-account or API-key sign-ins skip the org policy |
 
 ## Summary
 - **Claude Code** — closest to full support: one admin-console paste covers R1–R3 and R6. Still to test: Windows and Linux.
 - **Cursor** — fully meets R2 only on Enterprise or with MDM. R6 and CLI coverage are the weak points.
-- **Codex** — strong enforcement through managed requirements, but the handler needs its own channel (MDM or workspace plugin). The plugin is set up per workspace, and the sign-in lock needs MDM.
+- **Codex** — one TOML paste in the Admin Console: managed hooks enforce, and a hash-pinned installer delivers the handler. No plugin needed. The sign-in lock needs MDM.
 
 ## Open decisions
 - Do we require Enterprise or MDM for full R2, or accept the ⚠ tiers and tell the customer?
-- Do we list Evalon in OpenAI's public plugin directory to make Codex setup (R3) easier?

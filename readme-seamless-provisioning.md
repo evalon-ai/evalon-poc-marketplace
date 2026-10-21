@@ -25,18 +25,21 @@
 - Last resort: **MCP-server bridge** (server reads the parameter, writes a file, hook reads it). *Fragile — MCP server launch/timing isn't guaranteed (may start late or never).*
 
 ### Codex
-- **(Recommended)** **M4** — an admin-set, org-wide `SessionStart` hook writes an **Evalon-assigned token** to a file the hook reads. *Clean 1:1 per customer; needs enterprise managed config.*
+- **(Recommended)** The **Evalon tenant id rides in the managed hooks** that the admin pastes into requirements anyway (no plugin; see `readme-codex.md`). Two options:
+  - **A · Every event hook (M2 command args):** each hook command passes `--org <id>`. Always current, no file, no race.
+  - **B · Installer hook only (M4):** the `SessionStart` installer hook writes the id to `~/.evalon/org_id`; event hooks stay generic and read the file.
+  - *Both: same single admin paste, clean 1:1 per customer; needs ChatGPT workspace managed config.*
 - Alternative: the hook reads the **ChatGPT workspace id** from `~/.codex/auth.json` and tags events; the admin reports it from the dashboard; we match (and union) in the backend. *ChatGPT login only; not the API `org-…`.*
 - *Watch:* **no single-per-org id exists** that a hook can read locally *and* an admin can report — the local id is **per-workspace** (several per company → union in our backend), `org-…` needs a secret and isn't 1:1 either, and the company-level "Tenant" id isn't locally exposed. So **M4's assigned token is the clean 1:1 key**; the workspace id is a secondary signal to union.
 
 ## TL;DR
 | | Claude Code | Cursor | Codex |
 |---|---|---|---|
-| **M2 · managed value → hook** (platform-distributed) | ✅ managed `env` var (console) — **env→hook validated locally** | ⚠ **undocumented & UNTESTED for hooks** — `variables` is official but exemplified only for `mcp.json`; hook schema shows no `env`/`args`/`${VAR}`, and no example confirms a hook reading one (none proves it fails either). **Test before relying**; proven paths = `user_email` / M4 | ❌ **for plugin delivery** — no platform-distributed value reaches a plugin hook (no `variables`, env-policy, or args); ✅ only via **non-plugin managed `hooks.json`** command args |
+| **M2 · managed value → hook** (platform-distributed) | ✅ managed `env` var (console) — **env→hook validated locally** | ⚠ **undocumented & UNTESTED for hooks** — `variables` is official but exemplified only for `mcp.json`; hook schema shows no `env`/`args`/`${VAR}`, and no example confirms a hook reading one (none proves it fails either). **Test before relying**; proven paths = `user_email` / M4 | ✅ **managed hooks command args** (`--org <id>`) — Evalon uses managed hooks, not a plugin. (❌ for plugin hooks: no `variables` / env / args) |
 | **M3 · native org id in hook context** (stdin/env) | ❌ none in stdin/env | ❌ none (only `user_email`) | ❌ none in stdin/env |
 | **M3-id · native hash-grade org id exists?** | ✅ org **UUID** (1:1) | ❌ team id = **sequential int** | ⚠ `org-…` / workspace **UUID** exist but **not 1:1 per org** (several workspaces; `org-…` unreachable without a secret) |
 | **M3-local · extract org id from machine state** | ✅ `~/.claude.json` → `oauthAccount.organizationUuid` (⚠ undocumented) | ❌ only a secret JWT; no non-secret hash id | ⚠ ChatGPT mode: `~/.codex/auth.json` account-id (undocumented) |
-| **M4 · managed Startup hook → `~/.evalon/org_id`; plugin reads file** | ✅ server-managed `SessionStart` hook (or just M2 env) | ✅ **Enterprise** team `sessionStart` / **MDM** (❌ Teams·Pro w/o MDM) | ✅ managed `SessionStart` hook — **how a Codex plugin gets the id** |
+| **M4 · managed Startup hook → `~/.evalon/org_id`; plugin reads file** | ✅ server-managed `SessionStart` hook (or just M2 env) | ✅ **Enterprise** team `sessionStart` / **MDM** (❌ Teams·Pro w/o MDM) | ✅ managed `SessionStart` installer hook writes the file (option B) |
 | **M5-email · authenticated email in hook** (per-user) | ❌ none | ✅ `user_email` (trustworthy under enforced SSO) | ❌ none |
 | **M6-plugin-parameter · admin-set plugin option → hook** | ✅ `userConfig` → `CLAUDE_PLUGIN_OPTION_<KEY>` (admin sets via managed `pluginConfigs`) | ✅⚠ via **MCP-server bridge**: plugin `${VAR}` → plugin's MCP server `env` (✅) → writes `~/.evalon/org_id` → hook reads it; ⚠ MCP **start-timing racy** (first-run gap self-heals). *(Direct `${VAR}`→hook stays untested.)* | ❌ no plugin variables/options field |
 
@@ -45,7 +48,7 @@
 **Bottom line:** **no platform injects a native org id into the hook (M3 fails everywhere)**, and **M2 works on Claude only**. Per-platform:
 - **Claude = M2 managed `env` var** ✅ (value = the native org UUID).
 - **Cursor =** test **plugin-param→hook** (clean if it works); else **`user_email` + enforced SSO** (map domain→org); **MCP bridge** is a fragile last resort.
-- **Codex (plugin) = M4** (admin hook writes an Evalon-assigned token) — clean 1:1; or read the **ChatGPT workspace id** from `auth.json` + admin reports it (⚠ not 1:1 per org → union). M2 ❌ for plugin delivery.
+- **Codex = M2 command args (A) or M4 installer hook (B)** — both in the managed hooks the admin already pastes; clean 1:1. Fallback: the **ChatGPT workspace id** from `auth.json` (⚠ not 1:1 per org → union).
 
 An **MDM-dropped `org_id` file** read by the hook is the common non-native fallback for an opaque admin-assigned id. All local-extraction / undocumented fields → version-guard.
 
@@ -188,10 +191,10 @@ hook subprocesses** (plugin hooks receive only `PLUGIN_ROOT`, `PLUGIN_DATA`, `CL
 - **Authenticated email (per-user):** the `email` claim inside `~/.codex/auth.json`'s `id_token` (base64url-decode). `codex login status` reports the auth **method** (exits 0 if logged in), not reliably the email.
 
 ### Recommendation — Codex
-If hooks are distributed as a **managed `hooks.json`**, prefer **M2 — command args** (verified).
-**If hooks are bundled in a plugin** (Evalon's plan), Codex has **no plugin-variable/env path**, so:
-- **(Recommended) M4 / admin-assigned token** — a managed `SessionStart` hook (or MDM-dropped file) writes an **Evalon-assigned opaque id** the hook reads: clean **1:1 per customer**.
-- **Alternative — local-derive:** read `auth.json` `chatgpt_account_id` on `SessionStart`, cache in `PLUGIN_DATA`; ⚠ this is the **workspace id, not 1:1 per org** (a company can run several) → backend must **union**, and it's **ChatGPT-auth only**.
+Evalon distributes its hooks as **managed hooks** (no plugin — see `readme-codex.md`), so the id rides in the same admin paste:
+- **A · Every event hook — M2 command args (recommended):** `evalon-hook PreToolUse --org <id>`. Changes apply on the next hook call; no file, no first-session race.
+- **B · Installer hook only — M4:** the `SessionStart` hook writes `~/.evalon/org_id` every session (and passes `--org` to the installer); event hooks read the file. Keeps event commands generic; the file is user-writable.
+- **Fallback — local-derive:** read `auth.json` `chatgpt_account_id`; ⚠ the **workspace id, not 1:1 per org** → backend must **union**, and it's **ChatGPT-auth only**.
 Not `shell_environment_policy` (shell-tool only) and not a plugin manifest variable (none exists).
 
 ---
@@ -207,7 +210,7 @@ Not `shell_environment_policy` (shell-tool only) and not a plugin manifest varia
 **Caveats:** needs an **admin to set the managed hook once per org** (not zero-touch); `SessionStart` runs before the first reporting event (file written at session start, read on later events); handle **per-OS** script content (sh vs PowerShell); the id is **non-secret** → the file needs no special protection; make the write **idempotent**. ⚠ Confirm the **Cursor team-hooks form exposes `sessionStart`** and that **script content may write files** (high confidence; not separately tested).
 
 ## Cross-platform recommendation
-1. **M2 (managed value → hook):** **Claude ✅** (managed `env` var). **Cursor ⚠** (plugin `variables`→hook undocumented/untested) → proven paths **`user_email` + SSO** or **M4**. **Codex (plugin) ❌** → **M3-local** or **M4**; command-args M2 only for a non-plugin managed `hooks.json`.
+1. **M2 (managed value → hook):** **Claude ✅** (managed `env` var). **Cursor ⚠** (plugin `variables`→hook undocumented/untested) → proven paths **`user_email` + SSO** or **M4**. **Codex ✅** via managed hooks command args (or **M4** installer hook); ❌ only for plugin hooks.
 2. **Value to use:** the platform's **native hash-grade org id** where it exists (Claude `organizationUuid`; OpenAI `org-…` / workspace UUID) — the customer reads it from their console once and the admin sets it (or local-extracts it). For **Cursor** there's no usable org id in-context → attribute via **`user_email`** (map to org) or an MDM-dropped opaque id.
 3. **M3-local** — a zero-config **fallback** on **Claude** (`~/.claude.json` → `oauthAccount.organizationUuid`, 1:1 per org); on **Codex** it yields the **workspace id** (⚠ **not 1:1 per org** — may need to union; prefer **M4**'s assigned token for a clean key); **unavailable** on Cursor. All undocumented → read one field, version-guard, tolerate absence.
 4. **Granularity:** per-(platform × org) falls out naturally — each platform's id namespace is distinct; Evalon maps `(platform, id) → customer`.

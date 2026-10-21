@@ -118,10 +118,28 @@ command_windows = '"%USERPROFILE%\.evalon\bin\evalon-hook.exe" PreToolUse --org 
 # Same as PreToolUse for: PostToolUse, UserPromptSubmit, PermissionRequest, Stop
 ```
 
+**Tenant ID (R6) — two options, both in the same paste** (details: `readme-seamless-provisioning.md`):
+
+| | **A · Every event hook** (recommended) | **B · Installer hook only** |
+|---|---|---|
+| How | Each event hook passes `--org <tenant-id>` (as shown above) | `SessionStart` writes `~/.evalon/org_id` each session; event hooks read the file |
+| Token change | Applies on the next hook call | Applies on the next session |
+| Event hook commands | Repeat the ID in every entry | Generic; the ID appears once |
+| Storage | None (in the command) | User-writable file |
+
+Option B's `SessionStart` command adds one step before the install check:
+
+```toml
+command = '''mkdir -p "$HOME/.evalon" && printf %s "<tenant-id>" > "$HOME/.evalon/org_id"; [ -x "$HOME/.evalon/bin/evalon-hook" ] || { …installer as above… }; exit 0'''
+command_windows = '''powershell -NoProfile -ExecutionPolicy Bypass -Command "New-Item -ItemType Directory -Force $env:USERPROFILE\.evalon | Out-Null; Set-Content -NoNewline $env:USERPROFILE\.evalon\org_id '<tenant-id>'; …installer as above…; exit 0"'''
+```
+
+In both options the tenant ID is **visible to users** (in `/hooks` and the cached requirements). Use a non-secret, opaque ID, and keep any secret out of hook commands.
+
 **What the admin reviews:**
 - the installer URL
 - one hash, which we publish on GitHub releases
-- the tenant ID (R6), which comes with the same paste
+- the tenant ID
 
 A new handler release needs **no TOML change**. The admin only re-pastes when the installer itself changes, which is rare.
 

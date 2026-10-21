@@ -39,7 +39,7 @@ Legend: ✅ met · ⚠ partial or untested · ❌ not met
 | **R3** Setup | ✅ Paste JSON in the admin console | **Enterprise** ✅ Add Evalon's marketplace, set the plugin to "Required". **Teams** ⚠ Per team; only one marketplace allowed, so add our plugin to the team's existing marketplace if it has one | ✅ Paste TOML in the Admin Console, once per workspace. ⚠ Sign-in lock needs MDM |
 | **R4** OS / arch | ✅ One `sh` script (Git Bash on Windows). ⚠ Linux untested | ⚠ No per-OS field; needs `sh` + `.ps1` entries | ✅ `command` + `command_windows`. ⚠ Untested |
 | **R5** No runtime | ⚠ Portable runtime; tested on macOS only | ⚠ Same; the `npx` quick win needs Node | ⚠ Same; untested |
-| **R6** Seamless tenant | ✅ Managed `env` var (tested locally) | ⚠ Plugin variable → hook untested; fallback: SSO email domain | ⚠ Admin-set managed hook with an Evalon ID; or the ChatGPT workspace ID (not 1:1 per org) |
+| **R6** Seamless tenant | ✅ Managed `env` var (tested locally) | ⚠ Plugin variable → hook untested; fallback: SSO email domain | ✅ Same TOML paste: `--org <id>` on every event hook, or written once by the installer hook |
 | **R7** Block | ✅ | ✅ | ✅ ❌ WebSearch isn't hooked |
 | **R8** Surfaces | ✅ CLI, IDE. ⚠ Bedrock/Vertex skip managed settings | ⚠ IDE ✅; CLI has limited hooks | ⚠ CLI, app ✅; IDE ⚠ untested. Cloud runs: `mcp_tool` hooks only |
 | **R9** Fail-open | ✅ Default | ✅ Default (leave `failClosed` unset) | ✅ Default |
@@ -50,7 +50,7 @@ Legend: ✅ met · ⚠ partial or untested · ❌ not met
 ## Summary
 - **Claude Code** — closest to full support: one admin-console paste covers R1–R3 and R6. Still to test: Windows and Linux.
 - **Cursor** — fully meets R2 only on Enterprise or with MDM. R6 and CLI coverage are the weak points.
-- **Codex** — one TOML paste in the Admin Console: managed hooks enforce, and a hash-pinned installer delivers the handler. No plugin needed. The sign-in lock needs MDM.
+- **Codex** — one TOML paste in the Admin Console covers R1–R3 and R6: managed hooks enforce, a hash-pinned installer delivers the handler, and the tenant ID rides in the hooks. No plugin needed. The sign-in lock needs MDM.
 
 ## Open decisions
 - Do we require Enterprise or MDM for full R2, or accept the ⚠ tiers and tell the customer?

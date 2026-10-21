@@ -1,0 +1,9 @@
+{
+  "name": "evalon-poc-marketplace",
+  "plugins": [
+    {
+      "name": "evalon-poc-codex-plugin",
+      "source": { "source": "local", "path": "./plugins/evalon-poc-codex-plugin" }
+    }
+  ]
+}

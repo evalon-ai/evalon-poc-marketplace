@@ -1,0 +1,5 @@
+{
+  "name": "evalon-poc-codex-plugin",
+  "version": "0.1.1",
+  "description": "POC: echoes every hook invocation so you can see hooks fire"
+}

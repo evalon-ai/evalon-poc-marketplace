@@ -8,6 +8,22 @@ Get Evalon's hook-based agent onto every developer machine running Claude Code, 
 - **OS-agnostic** – macOS, Windows and Linux, on x86_64 and ARM64.
 - **No Node.js dependency** – the machine is not required to have `node` installed.
 
+## Requirements coverage
+
+How this platform meets the requirements in `readme-requirements.md`. Where nothing is decided yet, options are listed in priority order.
+
+| Req | Requirement | How | Status |
+|---|---|---|---|
+| **R1** | Native centralized distribution | GitHub marketplace, enabled org-wide with `extraKnownMarketplaces` + `enabledPlugins` in managed settings | ✅ |
+| **R2** | Admin-managed | Managed settings have top precedence and force-enable the plugin. A server-managed hooks change may show a one-time approval dialog | ✅ ⚠ |
+| **R3** | Simple one-time setup | Paste the JSON in the admin console (or deploy `managed-settings.json`) | ✅ |
+| **R4** | All OSes and architectures | One `sh` script (Git Bash on Windows); verified on macOS and Windows, Linux untested | ⚠ |
+| **R5** | No runtime dependency | System `node` if present, else the Bun portable runtime from S3; verified on macOS only | ⚠ |
+| **R6** | Seamless tenant attribution | (1) Managed `env` var `EVALON_ORG_ID` (tested locally); (2) plugin option `CLAUDE_PLUGIN_OPTION_ORG_ID`; (3) fallback: local `organizationUuid`. See `readme-seamless-provisioning.md` | ✅ |
+| **R7** | Can block | `PreToolUse` returns deny or exits 2 | ✅ |
+| **R8** | Surface coverage | CLI and IDE covered; Bedrock/Vertex users skip the server-managed settings fetch | ⚠ |
+| **R9** | Fail-open | Platform default; the handler exits 0 on its own errors | ✅ |
+
 ## Approach: 4 layers
 
 | Layer | Concern | Mechanism | Status |

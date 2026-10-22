@@ -9,6 +9,24 @@
 Evalon's hook-based agent on every Cursor dev machine: **central, ideally silent enforcement**;
 **intercept & block**; **OS-agnostic** (mac/win/linux × x64/arm64); **no Node**.
 
+## Requirements coverage
+
+How this platform meets the requirements in `readme-requirements.md`. Where nothing is decided yet, options are listed in priority order.
+
+| Req | Requirement | How | Status |
+|---|---|---|---|
+| **R1** | Native centralized distribution | GitHub-sourced team marketplace with Auto Refresh | ✅ |
+| **R2** | Admin-managed | (1) "Required" plugin: can't be uninstalled, but turning off single hooks is undocumented; (2) MDM system `hooks.json` | ⚠ |
+| **R3** | Simple one-time setup | **Enterprise:** add Evalon's marketplace, set the plugin to "Required". **Teams:** per team; one-marketplace limit, so add the plugin to the team's existing marketplace | ✅ Ent · ⚠ Teams |
+| **R4** | All OSes and architectures | `sh` + `.ps1` entries with a self-guard (no per-OS field); Windows hook shell undocumented | ⚠ |
+| **R5** | No runtime dependency | A bootstrap downloads the per-OS launcher; the `npx` quick win needs Node | ⚠ |
+| **R6** | Seamless tenant attribution | (1) Plugin variable → hook (test first); (2) `user_email` + SSO domain mapping; (3) MCP-server bridge. See `readme-seamless-provisioning.md` | ⚠ |
+| **R7** | Can block | Permission hooks return `deny` or exit 2 | ✅ |
+| **R8** | Surface coverage | IDE covered; the `cursor-agent` CLI has limited hook coverage | ⚠ |
+| **R9** | Fail-open | Platform default; leave `failClosed` unset | ✅ |
+
+> **Primary path (agreed):** the plugin per plan (Enterprise / Teams). MDM is option 2. The decision tree below still shows MDM first.
+
 ## Conclusions
 **Recommendation — ship a plugin from a GitHub marketplace.**
 - **Enterprise / Teams:** publish the plugin to **Evalon's GitHub marketplace**, register it, and set

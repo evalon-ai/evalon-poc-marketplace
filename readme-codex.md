@@ -9,6 +9,24 @@
 >
 > Legend: ✅ verified in docs or `openai/codex` source (commit `af91f6e`) · ⚠ inference or untested.
 
+## Requirements coverage
+
+How this platform meets the requirements in `readme-requirements.md`. Where nothing is decided yet, options are listed in priority order.
+
+| Req | Requirement | How | Status |
+|---|---|---|---|
+| **R1** | Native centralized distribution | Managed `requirements.toml`; the handler comes from (1) a hash-pinned installer hook (C1), or (2) an MDM package (C2) | ✅ |
+| **R2** | Admin-managed | Managed hooks are trusted by policy and can't be disabled by users; `features.hooks` is pinned. The sign-in lock needs MDM | ✅ ⚠ |
+| **R3** | Simple one-time setup | C1: paste the TOML in the Admin Console, once per workspace. C2: needs MDM | ✅ |
+| **R4** | All OSes and architectures | `command` + `command_windows` per hook entry (untested) | ✅ ⚠ |
+| **R5** | No runtime dependency | Self-contained handler binary per OS/arch (untested) | ⚠ |
+| **R6** | Seamless tenant attribution | (1) `--org <id>` on every event hook; (2) the installer hook writes `~/.evalon/org_id`. See `readme-seamless-provisioning.md` | ✅ |
+| **R7** | Can block | `PreToolUse` returns deny or exits 2; hosted tools such as WebSearch aren't hooked | ✅ ⚠ |
+| **R8** | Surface coverage | CLI and desktop app covered; IDE extension untested; cloud runs support `mcp_tool` hooks only | ⚠ |
+| **R9** | Fail-open | Platform default | ✅ |
+
+> The POC echo plugin (`plugins/evalon-poc-codex-plugin`) is for testing hooks only. Plugin hooks don't meet R2.
+
 ## Why not a plugin
 
 On Claude Code the plugin carries the hooks, and managed settings enable it. **On Codex that doesn't
